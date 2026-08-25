@@ -3,23 +3,23 @@ import { prisma } from './config/prisma';
 import { app } from './app';
 
 const server = app.listen(env.port, () => {
-  console.log(`\n─────────────────────────────────────────────`);
-  console.log(`  Rizqun API`);
-  console.log(`  Environment : ${env.nodeEnv}`);
-  console.log(`  Port         : ${env.port}`);
-  console.log(`  Base URL     : ${env.appBaseUrl}`);
-  console.log(`  Health       : ${env.appBaseUrl}/health`);
-  console.log(`─────────────────────────────────────────────\n`);
+  console.info(`\n─────────────────────────────────────────────`);
+  console.info(`  Rizqun API`);
+  console.info(`  Environment : ${env.nodeEnv}`);
+  console.info(`  Port         : ${env.port}`);
+  console.info(`  Base URL     : ${env.appBaseUrl}`);
+  console.info(`  Health       : ${env.appBaseUrl}/health`);
+  console.info(`─────────────────────────────────────────────\n`);
 });
 
 // ─── Graceful shutdown ─────────────────────────────────────────
 const shutdown = (signal: string) => {
-  console.log(`\n${signal} received, shutting down gracefully...`);
+  console.info(`\n${signal} received, shutting down gracefully...`);
   server.close(async () => {
-    console.log('HTTP server closed.');
+    console.info('HTTP server closed.');
     try {
       await prisma.$disconnect();
-      console.log('Database disconnected.');
+      console.info('Database disconnected.');
     } catch (err) {
       console.error('Error disconnecting database:', err);
     }

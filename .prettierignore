@@ -1,0 +1,11 @@
+# Don't format these (generated / binary / external)
+node_modules/
+dist/
+build/
+coverage/
+package-lock.json
+pnpm-lock.yaml
+yarn.lock
+prisma/migrations/
+*.sql
+*.md

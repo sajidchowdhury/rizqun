@@ -11,7 +11,6 @@ import { env } from './env';
  * In production we just create one client per process.
  */
 declare global {
-  // eslint-disable-next-line no-var
   var prisma: PrismaClient | undefined;
 }
 

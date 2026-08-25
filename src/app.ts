@@ -22,7 +22,7 @@ app.use(
       }
     },
     credentials: true,
-  })
+  }),
 );
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true }));
@@ -69,7 +69,6 @@ app.use((_req, res) => {
 });
 
 // ─── Global error handler ──────────────────────────────────────
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
   if (err instanceof AppError) {
     res.status(err.statusCode).json({

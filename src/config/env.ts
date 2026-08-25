@@ -51,5 +51,7 @@ export const env = {
     password: parsed.data.SUPER_ADMIN_PASSWORD,
   },
 
-  corsOrigins: parsed.data.CORS_ORIGINS.split(',').map((s) => s.trim()).filter(Boolean),
+  corsOrigins: parsed.data.CORS_ORIGINS.split(',')
+    .map((s) => s.trim())
+    .filter(Boolean),
 };

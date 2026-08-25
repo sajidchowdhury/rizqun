@@ -8,8 +8,10 @@
     "dev": "tsx watch src/server.ts",
     "build": "tsc -p tsconfig.json",
     "start": "node dist/server.js",
-    "lint": "eslint . --ext .ts",
-    "format": "prettier --write \"src/**/*.ts\""
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write \"src/**/*.ts\" \"*.{mjs,json}\"",
+    "format:check": "prettier --check \"src/**/*.ts\" \"*.{mjs,json}\""
   },
   "engines": {
     "node": ">=20.0.0"
@@ -38,9 +40,11 @@
     "@typescript-eslint/eslint-plugin": "^8.18.2",
     "@typescript-eslint/parser": "^8.18.2",
     "eslint": "^9.17.0",
+    "eslint-config-prettier": "^10.1.8",
     "prettier": "^3.4.2",
     "prisma": "^5.22.0",
     "tsx": "^4.19.2",
-    "typescript": "^5.7.2"
+    "typescript": "^5.7.2",
+    "typescript-eslint": "^8.68.0"
   }
 }
