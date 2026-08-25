@@ -79,11 +79,27 @@ npx prisma studio
 # opens at http://localhost:5555
 ```
 
+### Seed the database (categories + super admin)
+
+```bash
+unset DATABASE_URL   # if your shell has a system-wide override
+npx prisma db seed
+```
+
+This creates:
+
+- 3 categories: `grocery`, `medicine`, `other`
+- 1 super admin user using `SUPER_ADMIN_EMAIL` and `SUPER_ADMIN_PASSWORD` from `.env`
+
+The seed is **idempotent** — running it multiple times produces the same end state.
+
 ### DB smoke test
 
 ```bash
 unset DATABASE_URL && npx tsx scripts/db-smoke-test.ts
 ```
+
+> Note: the smoke test deletes all rows in the `users` table. Do not run it against a database with real users.
 
 ## Scripts
 
@@ -97,8 +113,9 @@ unset DATABASE_URL && npx tsx scripts/db-smoke-test.ts
 | `npm run format` | Format all source files with Prettier |
 | `npm run format:check` | Check formatting without writing (used in CI) |
 | `npx prisma migrate dev --name <name>` | Create + apply a new migration |
+| `npx prisma db seed` | Seed categories + super admin (idempotent) |
 | `npx prisma studio` | Open DB GUI at `localhost:5555` |
-| `npx tsx scripts/db-smoke-test.ts` | Run DB CRUD smoke test |
+| `npx tsx scripts/db-smoke-test.ts` | Run DB CRUD smoke test (CAUTION: clears users table) |
 
 ## Code quality
 

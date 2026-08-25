@@ -10,15 +10,57 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ─── Session 0.2: Initial test model ───────────────────────────
-// This is a placeholder to verify the DB connection + migration pipeline.
-// It will be replaced in Phase 1 with the full User model (with role, passwordHash, etc.).
+// ─── Enums ─────────────────────────────────────────────────────
+
+enum UserRole {
+  super_admin
+  user
+}
+
+// Reserved for future use — products + orders will reference category slugs directly.
+// Slugs are stored as plain text (e.g. 'grocery', 'medicine', 'other').
+enum CategorySlug {
+  grocery
+  medicine
+  other
+  all
+}
+
+// ─── Models ────────────────────────────────────────────────────
+
+model Category {
+  id        Int           @id @default(autoincrement())
+  slug      String        @unique
+  name      String
+  createdAt DateTime     @default(now()) @map("created_at")
+  updatedAt DateTime     @updatedAt @map("updated_at")
+
+  // Relations — added in Phase 2 when products reference categories
+  // products  Product[]   // ← uncommented in Phase 2
+
+  @@map("categories")
+}
 
 model User {
-  id        Int      @id @default(autoincrement())
-  email     String   @unique
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  id             Int       @id @default(autoincrement())
+  name           String
+  email          String    @unique
+  phone          String
+  passwordHash   String    @map("password_hash")
+  role           UserRole  @default(user)
+  // JSONB array of category slugs the user can access.
+  // Examples:
+  //   ["all"]                     → super admin-like access (for users)
+  //   ["grocery"]                 → only grocery products
+  //   ["grocery", "medicine"]     → both grocery and medicine
+  // Inferred via the category-scope middleware (added in Session 1.3).
+  categoryAccess Json      @default("[]") @map("category_access")
+  isActive       Boolean   @default(true) @map("is_active")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
 
+  // Indexes — partial index on email (only active users), speeds up login
+  @@index([isActive])
+  @@index([role])
   @@map("users")
 }
