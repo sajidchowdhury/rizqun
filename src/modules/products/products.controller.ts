@@ -1,11 +1,17 @@
 import type { Request, Response } from 'express';
-import { listProductsQuerySchema, createProductSchema, updateProductSchema } from './products.dto';
+import {
+  listProductsQuerySchema,
+  createProductSchema,
+  updateProductSchema,
+  searchProductsQuerySchema,
+} from './products.dto';
 import {
   listProducts,
   getProductById,
   createProduct,
   updateProduct,
   deleteProduct,
+  searchProducts,
 } from './products.service';
 import { sendSuccess } from '../../utils/response';
 import { AppError } from '../../utils/AppError';
@@ -68,4 +74,20 @@ export async function remove(req: Request, res: Response): Promise<void> {
 
   const result = await deleteProduct(id);
   sendSuccess(res, { product: result }, 'Product deactivated');
+}
+
+// ─── GET /products/search ──────────────────────────────────────
+// Smart search endpoint — full-text search with ILIKE fallback.
+// Category scoping is applied via the `categoryScope` middleware in routes.
+export async function search(req: Request, res: Response): Promise<void> {
+  const parsed = searchProductsQuerySchema.safeParse(req.query);
+  if (!parsed.success) {
+    throw new AppError(400, parsed.error.issues[0]?.message ?? 'Invalid query');
+  }
+
+  // `req.categoryFilter` is set by the `categoryScope` middleware
+  const categoryFilter = req.categoryFilter;
+
+  const result = await searchProducts(parsed.data, categoryFilter);
+  sendSuccess(res, result, 'Search completed');
 }

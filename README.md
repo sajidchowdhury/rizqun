@@ -134,6 +134,7 @@ unset DATABASE_URL && npx tsx scripts/db-smoke-test.ts
 | PATCH | `/vendors/:id` | `super_admin` | Update a vendor (partial) |
 | DELETE | `/vendors/:id` | `super_admin` | Soft-delete a vendor (blocked if active products exist) |
 | GET | `/products?page=&limit=&categoryId=&vendorId=&isActive=&category=&search=` | any authed | List products (paginated, filterable) |
+| GET | `/products/search?q=&limit=&category=` | any authed | Smart search (FTS + ILIKE fallback, scoped by user's categoryAccess) |
 | GET | `/products/:id` | any authed | Get one product (with category + vendor nested) |
 | POST | `/products` | `super_admin` | Create a product (`search_vector` auto-maintained by trigger) |
 | PATCH | `/products/:id` | `super_admin` | Update a product (partial; SKU conflict → 409) |

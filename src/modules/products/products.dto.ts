@@ -53,3 +53,38 @@ export const listProductsQuerySchema = z.object({
 });
 
 export type ListProductsQuery = z.infer<typeof listProductsQuerySchema>;
+
+// ─── Search query ───────────────────────────────────────────────
+// Used by GET /products/search — the smart search endpoint.
+//
+// Category filtering is enforced in two ways:
+//   1. If `req.categoryFilter.hasAll` is false (user without 'all' access),
+//      the service restricts results to the user's allowed category slugs.
+//   2. If the user passes an explicit `category=` query, it's intersected with
+//      the user's allowed list (so a user with ['grocery'] cannot bypass and
+//      request 'medicine').
+
+export const searchProductsQuerySchema = z.object({
+  q: z.string().trim().min(1, 'Query must not be empty').max(200, 'Query too long'),
+  limit: z.coerce.number().int().min(1).max(50).default(20),
+  // Optional category filter — intersected with user's categoryAccess
+  category: z.string().trim().optional(),
+});
+
+export type SearchProductsQuery = z.infer<typeof searchProductsQuerySchema>;
+
+// ─── Search result row shape ────────────────────────────────────
+export interface SearchResultRow {
+  id: number;
+  name: string;
+  price: string; // Decimal as string (JSON-safe)
+  unit: string;
+  vendorId: number;
+  vendorName: string;
+  vendorWhatsappNumber: string | null;
+  categoryId: number;
+  categorySlug: string;
+  categoryName: string;
+  rank: number; // FTS rank (0 for ILIKE fallback rows)
+  source: 'fts' | 'ilike'; // which search strategy matched
+}

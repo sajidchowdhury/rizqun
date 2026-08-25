@@ -1,13 +1,18 @@
 import { Router } from 'express';
-import { list, getOne, create, update, remove } from './products.controller';
+import { list, getOne, create, update, remove, search } from './products.controller';
 import { asyncHandler } from '../../utils/asyncHandler';
 import { authenticate } from '../../middlewares/auth.middleware';
 import { requireRole } from '../../middlewares/role.middleware';
+import { categoryScope } from '../../middlewares/category-scope.middleware';
 
 const router = Router();
 
 // All product routes require authentication
 router.use(authenticate);
+
+// IMPORTANT: /search must come BEFORE /:id so Express doesn't treat
+// "search" as a product id.
+router.get('/search', categoryScope, asyncHandler(search));
 
 // Read access — any authed user
 router.get('/', asyncHandler(list));
