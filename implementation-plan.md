@@ -880,7 +880,7 @@ cancelled    → (terminal)
 |-------|----------|--------|
 | 0. Setup | 0.1, 0.2, 0.3 | ✅ |
 | 1. Auth | 1.1, 1.2, 1.3 | ✅ |
-| 2. Catalog | 2.1, 2.2, 2.3, 2.4, 2.5 | 🔄 next |
+| 2. Catalog | 2.1, 2.2, 2.3, 2.4, 2.5 | 🔄 in progress |
 | 3. Orders | 3.1, 3.2, 3.3 | ☐ |
 | 4. Status | 4.1, 4.2, 4.3 | ☐ |
 | 5. WhatsApp | 5.1, 5.2 | ☐ |
@@ -892,7 +892,7 @@ cancelled    → (terminal)
 | 11. Deployment | 11.1, 11.2, 11.3, 11.4 | ☐ |
 
 **Total: 38 sessions across 12 phases.**
-**Completed: 6 / 38 sessions**
+**Completed: 7 / 38 sessions**
 
 ### Session Log
 
@@ -904,5 +904,6 @@ cancelled    → (terminal)
 | 1.1 — Full User Schema + Migration | `a0a1f1c` | `User` + `Category` models with role enum + JSONB category access, seed script (idempotent) |
 | 1.2 — Auth Service (Register + Login + Refresh) | `988c3d0` | JWT auth with httpOnly refresh cookie, 5 endpoints, asyncHandler wrapper |
 | 1.3 — Auth Middlewares | `3e58c1e` | `authenticate`, `requireRole`, `categoryScope` middlewares; locked down `/register` to super_admin and `/me` to authed users |
+| 2.1 — Vendor + Product Schema | `6afd101` | `Vendor` + `Product` models, GIN index on `search_vector`, auto-maintained by trigger |
 
 After each session, paste the session's Confirmation Checkpoint back to the owner. Only after explicit "✅ confirmed" do we start the next session.
