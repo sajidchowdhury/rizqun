@@ -6,6 +6,7 @@ import cookieParser from 'cookie-parser';
 import { env } from './config/env';
 import { prisma } from './config/prisma';
 import { AppError } from './utils/AppError';
+import authRoutes from './modules/auth/auth.routes';
 
 const app = express();
 
@@ -30,6 +31,9 @@ app.use(cookieParser());
 
 // ─── Logging ──────────────────────────────────────────────────
 app.use(morgan(env.nodeEnv === 'production' ? 'combined' : 'dev'));
+
+// ─── Routes ─────────────────────────────────────────────────────
+app.use('/auth', authRoutes);
 
 // ─── Health check ──────────────────────────────────────────────
 app.get('/health', async (_req: Request, res: Response) => {
