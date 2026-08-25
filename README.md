@@ -13,6 +13,19 @@ Order management system for receiving customer calls, building orders on the fly
 - npm ≥ 10
 - PostgreSQL ≥ 14
 
+### Database setup
+
+After installing PostgreSQL, create the database and user:
+
+```sql
+-- run as a superuser (e.g. `psql -U postgres`)
+CREATE USER rizqun_user WITH PASSWORD 'rizqun_password' CREATEDB;
+CREATE DATABASE rizqun_db OWNER rizqun_user;
+GRANT ALL PRIVILEGES ON DATABASE rizqun_db TO rizqun_user;
+```
+
+> `CREATEDB` is required because Prisma Migrate creates a temporary shadow database during dev migrations.
+
 ### Install
 
 ```bash
@@ -27,6 +40,8 @@ npm ci
 cp .env.example .env
 # edit .env — set DATABASE_URL, JWT secrets, super admin password
 ```
+
+> If your shell has a system-wide `DATABASE_URL` env var that conflicts with the one in `.env`, run `unset DATABASE_URL` before starting the server or running migrations. This is purely a development-machine issue.
 
 Generate strong JWT secrets:
 
@@ -47,7 +62,27 @@ Server boots on `http://localhost:3000`.
 
 ```bash
 curl http://localhost:3000/health
-# expected: { "status": "ok", "service": "rizqun-api", ... }
+# expected: { "status": "ok", "service": "rizqun-api", ..., "database": { "status": "ok", "latencyMs": <number> } }
+```
+
+### Run migrations
+
+```bash
+unset DATABASE_URL   # if your shell has a system-wide override
+npx prisma migrate dev --name <migration_name>
+```
+
+### Open Prisma Studio (DB GUI)
+
+```bash
+npx prisma studio
+# opens at http://localhost:5555
+```
+
+### DB smoke test
+
+```bash
+unset DATABASE_URL && npx tsx scripts/db-smoke-test.ts
 ```
 
 ## Scripts
@@ -59,6 +94,9 @@ curl http://localhost:3000/health
 | `npm start` | Run compiled `dist/server.js` |
 | `npm run lint` | Lint with ESLint |
 | `npm run format` | Format with Prettier |
+| `npx prisma migrate dev --name <name>` | Create + apply a new migration |
+| `npx prisma studio` | Open DB GUI at `localhost:5555` |
+| `npx tsx scripts/db-smoke-test.ts` | Run DB CRUD smoke test |
 
 ## Project structure
 

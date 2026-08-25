@@ -4,6 +4,7 @@ import helmet from 'helmet';
 import morgan from 'morgan';
 import cookieParser from 'cookie-parser';
 import { env } from './config/env';
+import { prisma } from './config/prisma';
 import { AppError } from './utils/AppError';
 
 const app = express();
@@ -31,14 +32,31 @@ app.use(cookieParser());
 app.use(morgan(env.nodeEnv === 'production' ? 'combined' : 'dev'));
 
 // ─── Health check ──────────────────────────────────────────────
-app.get('/health', (_req: Request, res: Response) => {
+app.get('/health', async (_req: Request, res: Response) => {
+  // Probe DB connection
+  let dbStatus: 'ok' | 'error' = 'ok';
+  let dbLatencyMs: number | undefined;
+  try {
+    const start = Date.now();
+    await prisma.$queryRaw`SELECT 1`;
+    dbLatencyMs = Date.now() - start;
+  } catch {
+    dbStatus = 'error';
+  }
+
+  const overall = dbStatus === 'ok' ? 'ok' : 'degraded';
+
   res.status(200).json({
-    status: 'ok',
+    status: overall,
     service: 'rizqun-api',
     version: process.env.npm_package_version ?? '0.0.0',
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
     environment: env.nodeEnv,
+    database: {
+      status: dbStatus,
+      latencyMs: dbLatencyMs,
+    },
   });
 });
 

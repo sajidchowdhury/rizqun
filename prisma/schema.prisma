@@ -1,0 +1,24 @@
+// Rizqun — Prisma schema
+// Docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Session 0.2: Initial test model ───────────────────────────
+// This is a placeholder to verify the DB connection + migration pipeline.
+// It will be replaced in Phase 1 with the full User model (with role, passwordHash, etc.).
+
+model User {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("users")
+}

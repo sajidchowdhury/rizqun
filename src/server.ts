@@ -1,4 +1,5 @@
 import { env } from './config/env';
+import { prisma } from './config/prisma';
 import { app } from './app';
 
 const server = app.listen(env.port, () => {
@@ -14,8 +15,14 @@ const server = app.listen(env.port, () => {
 // ─── Graceful shutdown ─────────────────────────────────────────
 const shutdown = (signal: string) => {
   console.log(`\n${signal} received, shutting down gracefully...`);
-  server.close(() => {
-    console.log('Server closed.');
+  server.close(async () => {
+    console.log('HTTP server closed.');
+    try {
+      await prisma.$disconnect();
+      console.log('Database disconnected.');
+    } catch (err) {
+      console.error('Error disconnecting database:', err);
+    }
     process.exit(0);
   });
 
