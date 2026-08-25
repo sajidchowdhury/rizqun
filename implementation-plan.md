@@ -892,7 +892,7 @@ cancelled    → (terminal)
 | 11. Deployment | 11.1, 11.2, 11.3, 11.4 | ☐ |
 
 **Total: 38 sessions across 12 phases.**
-**Completed: 3 / 38 sessions**
+**Completed: 5 / 38 sessions**
 
 ### Session Log
 
@@ -901,5 +901,7 @@ cancelled    → (terminal)
 | 0.1 — Repo & Local Environment | `ada9f2b` | Node + TS + Express skeleton, `/health` endpoint, env config with Zod |
 | 0.2 — Prisma + PostgreSQL Setup | `82a9ee7` | PG 17 (user-space), `rizqun_db`, initial `User` model, DB probe on `/health` |
 | 0.3 — Linting, Formatting, Project Structure | `9915a44` | ESLint 9 flat config, Prettier, folder skeleton, code-quality docs |
+| 1.1 — Full User Schema + Migration | `a0a1f1c` | `User` + `Category` models with role enum + JSONB category access, seed script (idempotent) |
+| 1.2 — Auth Service (Register + Login + Refresh) | `988c3d0` | JWT auth with httpOnly refresh cookie, 5 endpoints, asyncHandler wrapper |
 
 After each session, paste the session's Confirmation Checkpoint back to the owner. Only after explicit "✅ confirmed" do we start the next session.
