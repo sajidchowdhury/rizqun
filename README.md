@@ -137,6 +137,7 @@ unset DATABASE_URL && npx tsx scripts/db-smoke-test.ts
 | GET | `/products/search?q=&limit=&category=` | any authed | Smart search (FTS + ILIKE fallback, scoped by user's categoryAccess) |
 | GET | `/products/:id` | any authed | Get one product (with category + vendor nested) |
 | POST | `/products` | `super_admin` | Create a product (`search_vector` auto-maintained by trigger) |
+| POST | `/products/quick-add` | any authed (scoped) | Operator-side quick-add — auto-generates SKU, scoped by user's `categoryAccess` |
 | PATCH | `/products/:id` | `super_admin` | Update a product (partial; SKU conflict → 409) |
 | DELETE | `/products/:id` | `super_admin` | Soft-delete a product (`isActive=false`) |
 

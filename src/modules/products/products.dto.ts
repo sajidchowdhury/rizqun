@@ -88,3 +88,31 @@ export interface SearchResultRow {
   rank: number; // FTS rank (0 for ILIKE fallback rows)
   source: 'fts' | 'ilike'; // which search strategy matched
 }
+
+// ─── Quick-add (operator-side, in-call product creation) ──────
+// Used by POST /products/quick-add — any authenticated user with the
+// appropriate categoryAccess can create a product on the fly during a call.
+//
+// Unlike the super-admin /products endpoint, this one accepts a `categorySlug`
+// instead of `categoryId` (operators don't know internal IDs) and auto-generates
+// a SKU if one is not provided.
+
+export const quickAddProductSchema = z.object({
+  name: z
+    .string()
+    .trim()
+    .min(2, 'Name must be at least 2 characters')
+    .max(500, 'Name must be at most 500 characters'),
+  price: z.number().min(0, 'Price must be >= 0').max(99999999.99, 'Price must be <= 99,999,999.99'),
+  vendorId: z.number().int().positive('vendorId must be a positive integer'),
+  categorySlug: z
+    .string()
+    .trim()
+    .min(1, 'categorySlug is required')
+    .max(50, 'categorySlug too long'),
+  unit: z.string().trim().min(1).max(50).default('pcs'),
+  // Optional — auto-generated if not provided (format: QUICK-{userId}-{timestamp})
+  sku: z.string().trim().min(1).max(100).optional(),
+});
+
+export type QuickAddProductInput = z.infer<typeof quickAddProductSchema>;

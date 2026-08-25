@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { list, getOne, create, update, remove, search } from './products.controller';
+import { list, getOne, create, update, remove, search, quickAdd } from './products.controller';
 import { asyncHandler } from '../../utils/asyncHandler';
 import { authenticate } from '../../middlewares/auth.middleware';
 import { requireRole } from '../../middlewares/role.middleware';
@@ -10,9 +10,10 @@ const router = Router();
 // All product routes require authentication
 router.use(authenticate);
 
-// IMPORTANT: /search must come BEFORE /:id so Express doesn't treat
-// "search" as a product id.
+// IMPORTANT: static routes (/search, /quick-add) must come BEFORE /:id
+// so Express doesn't treat "search" or "quick-add" as a product id.
 router.get('/search', categoryScope, asyncHandler(search));
+router.post('/quick-add', asyncHandler(quickAdd));
 
 // Read access — any authed user
 router.get('/', asyncHandler(list));

@@ -7,6 +7,7 @@ import type {
   ListProductsQuery,
   SearchProductsQuery,
   SearchResultRow,
+  QuickAddProductInput,
 } from './products.dto';
 
 // ─── Public product shape (includes category + vendor for convenience) ──
@@ -458,4 +459,87 @@ async function searchIlike(
     ORDER BY p.name ASC, p.id ASC
     LIMIT ${limit};
   `;
+}
+
+// ─── Quick-add (operator-side, in-call product creation) ────────
+//
+// Differences from `createProduct` (super-admin path):
+//   1. Takes `categorySlug` instead of `categoryId` (operators don't know IDs)
+//   2. Auto-generates SKU if not provided
+//   3. Enforces user's `categoryAccess` — operators can only create products
+//      in categories they have access to
+//   4. Does not allow setting `isActive` (always true — operators don't deactivate)
+
+export async function quickAddProduct(
+  input: QuickAddProductInput,
+  userId: number,
+  userCategoryAccess: string[],
+): Promise<PublicProduct> {
+  // ─── 1. Verify the user has access to the requested category ──
+  // Super admin has ['all'] → can create in any category
+  const hasAll = userCategoryAccess.includes('all');
+  if (!hasAll && !userCategoryAccess.includes(input.categorySlug)) {
+    throw new AppError(403, `You do not have access to the '${input.categorySlug}' category`);
+  }
+
+  // ─── 2. Look up the category by slug ─────────────────────────
+  const category = await prisma.category.findUnique({
+    where: { slug: input.categorySlug },
+  });
+  if (!category) {
+    throw new AppError(400, `Category '${input.categorySlug}' does not exist`);
+  }
+
+  // ─── 3. Validate vendor exists + is active ────────────────────
+  const vendor = await prisma.vendor.findUnique({ where: { id: input.vendorId } });
+  if (!vendor) {
+    throw new AppError(400, `Vendor with id ${input.vendorId} does not exist`);
+  }
+  if (!vendor.isActive) {
+    throw new AppError(400, `Vendor with id ${input.vendorId} is deactivated`);
+  }
+
+  // ─── 4. Auto-generate SKU if not provided ─────────────────────
+  // Format: QUICK-{userId}-{YYYYMMDDHHmmss}
+  // Collisions are unlikely (operator rarely quick-adds 2 products within the same second)
+  // and the unique constraint will catch them anyway.
+  let sku = input.sku;
+  if (!sku) {
+    const now = new Date();
+    const ts =
+      now.getUTCFullYear().toString() +
+      String(now.getUTCMonth() + 1).padStart(2, '0') +
+      String(now.getUTCDate()).padStart(2, '0') +
+      String(now.getUTCHours()).padStart(2, '0') +
+      String(now.getUTCMinutes()).padStart(2, '0') +
+      String(now.getUTCSeconds()).padStart(2, '0');
+    sku = `QUICK-${userId}-${ts}`;
+  }
+
+  // ─── 5. SKU uniqueness check ─────────────────────────────────
+  const existing = await prisma.product.findUnique({ where: { sku } });
+  if (existing) {
+    throw new AppError(409, `A product with SKU '${sku}' already exists`);
+  }
+
+  // ─── 6. Create ────────────────────────────────────────────────
+  const product = await prisma.product.create({
+    data: {
+      name: input.name,
+      sku,
+      price: input.price,
+      categoryId: category.id,
+      vendorId: input.vendorId,
+      unit: input.unit,
+      isActive: true, // always active on creation
+    },
+    include: {
+      category: { select: { id: true, slug: true, name: true } },
+      vendor: {
+        select: { id: true, name: true, phone: true, whatsappNumber: true },
+      },
+    },
+  });
+
+  return toPublicProduct(product);
 }

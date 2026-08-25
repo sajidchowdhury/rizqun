@@ -4,6 +4,7 @@ import {
   createProductSchema,
   updateProductSchema,
   searchProductsQuerySchema,
+  quickAddProductSchema,
 } from './products.dto';
 import {
   listProducts,
@@ -12,6 +13,7 @@ import {
   updateProduct,
   deleteProduct,
   searchProducts,
+  quickAddProduct,
 } from './products.service';
 import { sendSuccess } from '../../utils/response';
 import { AppError } from '../../utils/AppError';
@@ -90,4 +92,25 @@ export async function search(req: Request, res: Response): Promise<void> {
 
   const result = await searchProducts(parsed.data, categoryFilter);
   sendSuccess(res, result, 'Search completed');
+}
+
+// ─── POST /products/quick-add ──────────────────────────────────
+// Operator-side, in-call product creation. Available to any authenticated
+// user — but the service enforces that the requested `categorySlug` is in
+// the user's `categoryAccess`.
+export async function quickAdd(req: Request, res: Response): Promise<void> {
+  const parsed = quickAddProductSchema.safeParse(req.body);
+  if (!parsed.success) {
+    throw new AppError(400, parsed.error.issues[0]?.message ?? 'Invalid input');
+  }
+
+  // `req.user` is set by the `authenticate` middleware
+  const userId = req.user?.userId;
+  if (!userId) {
+    throw new AppError(401, 'Not authenticated');
+  }
+  const userCategoryAccess = req.user?.categoryAccess ?? [];
+
+  const product = await quickAddProduct(parsed.data, userId, userCategoryAccess);
+  sendSuccess(res, { product }, 'Product created via quick-add', 201);
 }
