@@ -163,6 +163,35 @@ curl -X POST http://localhost:3000/auth/register \
   }'
 ```
 
+## Schema overview
+
+| Table | Purpose |
+|-------|---------|
+| `users` | Super admins + operators (role enum, JSONB category_access) |
+| `categories` | Product categories (grocery, medicine, other) — seeded |
+| `vendors` | Suppliers (name, phone, whatsapp_number, category enum) |
+| `products` | Catalog items (name, sku, price, category_id, vendor_id, unit, search_vector tsvector) |
+
+### Full-text search
+
+`products.search_vector` is a PostgreSQL `tsvector` column auto-maintained by a trigger:
+
+```sql
+-- Trigger: products_search_vector_trigger
+-- Fires BEFORE INSERT OR UPDATE on products
+-- Sets search_vector = to_tsvector('english', name)
+```
+
+A GIN index on `search_vector` enables fast full-text queries:
+
+```sql
+SELECT id, name, ts_rank(search_vector, q) AS rank
+FROM products, to_tsquery('english', 'paracetamol') q
+WHERE search_vector @@ q
+ORDER BY rank DESC
+LIMIT 20;
+```
+
 ## Code quality
 
 This project uses:
