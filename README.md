@@ -183,6 +183,20 @@ curl -X POST http://localhost:3000/auth/register \
 | `categories` | Product categories (grocery, medicine, other) — seeded |
 | `vendors` | Suppliers (name, phone, whatsapp_number, category enum) |
 | `products` | Catalog items (name, sku, price, category_id, vendor_id, unit, search_vector tsvector) |
+| `orders` | Customer orders (order_code, customer info, subtotal/delivery_fee/total, status enum, rating_token) |
+| `order_items` | Snapshot rows per order (product_id nullable, vendor_id denormalized, name/price snapshot, qty, line_total, added_after_finalize) |
+| `status_log` | Append-only audit trail of every status transition (from_status, to_status, changed_by, note) |
+| `ratings` | Customer rating per order (overall, speed, behavior, comment) — unique on order_id |
+
+### Order status lifecycle
+
+```
+pending → waiting_vendor → preparing → picked_up → delivered
+       ↘               ↘            ↘
+        cancelled      cancelled     cancelled
+```
+
+Any state except `picked_up`/`delivered`/`cancelled` can transition to `cancelled`. `picked_up` → `delivered` is the only valid forward path from `picked_up`.
 
 ### Full-text search
 

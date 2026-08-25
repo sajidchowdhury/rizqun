@@ -32,6 +32,18 @@ enum VendorCategory {
   other
 }
 
+// Lifecycle of an order:
+//   pending → waiting_vendor → preparing → picked_up → delivered
+// Any state except picked_up/delivered/cancelled can transition to cancelled.
+enum OrderStatus {
+  pending
+  waiting_vendor
+  preparing
+  picked_up
+  delivered
+  cancelled
+}
+
 // ─── Models ────────────────────────────────────────────────────
 
 model Category {
@@ -68,6 +80,9 @@ model User {
   @@index([isActive])
   @@index([role])
   @@map("users")
+  // Relations
+  orders    Order[]
+  statusLogs StatusLog[]
 }
 
 model Vendor {
@@ -80,7 +95,8 @@ model Vendor {
   createdAt      DateTime       @default(now()) @map("created_at")
   updatedAt      DateTime       @updatedAt @map("updated_at")
 
-  products Product[]
+  products   Product[]
+  orderItems OrderItem[]
 
   @@index([category])
   @@index([isActive])
@@ -106,8 +122,110 @@ model Product {
   category Category @relation(fields: [categoryId], references: [id], onDelete: Restrict)
   vendor   Vendor   @relation(fields: [vendorId], references: [id], onDelete: Restrict)
 
+  orderItems OrderItem[]
+
   @@index([categoryId])
   @@index([vendorId])
   @@index([isActive])
   @@map("products")
+}
+
+// ─── Orders ─────────────────────────────────────────────────────
+
+model Order {
+  id              Int         @id @default(autoincrement())
+  orderCode       String      @unique @map("order_code") // e.g. ORD-2026-00001
+  userId          Int         @map("user_id")
+  customerName    String      @map("customer_name")
+  customerPhone   String      @map("customer_phone")
+  customerAddress String?     @map("customer_address")
+  subtotal        Decimal     @db.Decimal(12, 2) // sum of all line_totals
+  deliveryFee     Decimal     @default(0) @db.Decimal(10, 2) @map("delivery_fee")
+  total           Decimal     @db.Decimal(12, 2) // subtotal + deliveryFee
+  status          OrderStatus @default(pending)
+  // Single-use token for the customer rating form (set when operator sends link,
+  // cleared to NULL after the rating is submitted to prevent reuse).
+  ratingToken     String?     @unique @map("rating_token")
+  createdAt       DateTime    @default(now()) @map("created_at")
+  // Set when status transitions to 'delivered'. NULL until then.
+  deliveredAt     DateTime?   @map("delivered_at")
+
+  user       User        @relation(fields: [userId], references: [id], onDelete: Restrict)
+  items      OrderItem[]
+  statusLogs StatusLog[]
+  rating     Rating?
+
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+  @@index([deliveredAt])
+  @@map("orders")
+}
+
+model OrderItem {
+  id                   Int      @id @default(autoincrement())
+  orderId              Int      @map("order_id")
+  // Nullable — when an operator quick-adds a custom product during the call,
+  // we still link to the new product. If the product is later deleted from
+  // the catalog, we want to keep the historical order item intact → onDelete: SetNull.
+  productId            Int?     @map("product_id")
+  // Denormalized — needed for the WhatsApp "group by vendor" feature without
+  // joining products. Also stable if the product is later moved to another vendor.
+  vendorId             Int      @map("vendor_id")
+  // Snapshot of product name + price at the time of order placement.
+  // Order history must remain correct even if product is later renamed or repriced.
+  productNameSnapshot  String   @map("product_name_snapshot")
+  priceSnapshot        Decimal @db.Decimal(10, 2) @map("price_snapshot")
+  qty                  Int      @default(1)
+  lineTotal            Decimal @db.Decimal(12, 2) @map("line_total") // priceSnapshot * qty
+  // True if item was added AFTER the order was placed (i.e. customer called back).
+  // Powers the "*NEW*" badge in the WhatsApp copy text.
+  addedAfterFinalize   Boolean  @default(false) @map("added_after_finalize")
+  addedAt              DateTime @default(now()) @map("added_at")
+
+  order    Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product  Product?  @relation(fields: [productId], references: [id], onDelete: SetNull)
+  vendor   Vendor   @relation(fields: [vendorId], references: [id], onDelete: Restrict)
+
+  @@index([orderId])
+  @@index([productId])
+  @@index([vendorId])
+  @@index([addedAfterFinalize])
+  @@map("order_items")
+}
+
+// Append-only audit trail — every status transition is recorded.
+// Powers the dashboard's "time per step" metric.
+model StatusLog {
+  id         Int          @id @default(autoincrement())
+  orderId    Int          @map("order_id")
+  fromStatus OrderStatus? @map("from_status") // NULL for the very first entry (order creation)
+  toStatus   OrderStatus  @map("to_status")
+  changedBy  Int          @map("changed_by") // users.id
+  // Optional note — used to record 'added_item:<productId>' or 'removed_item:<itemId>'
+  note       String?     // free-form audit text
+  changedAt  DateTime     @default(now()) @map("changed_at")
+
+  order   Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  changer User  @relation(fields: [changedBy], references: [id], onDelete: Restrict)
+
+  @@index([orderId])
+  @@index([changedBy])
+  @@index([toStatus])
+  @@map("status_log")
+}
+
+model Rating {
+  id          Int      @id @default(autoincrement())
+  orderId     Int      @unique @map("order_id") // one rating per order
+  overall     Int      // 1-5
+  speed       Int      // 1-5
+  behavior    Int      // 1-5
+  comment     String?  @db.Text
+  submittedAt DateTime @default(now()) @map("submitted_at")
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@map("ratings")
 }
