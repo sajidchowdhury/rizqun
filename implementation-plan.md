@@ -892,7 +892,7 @@ cancelled    → (terminal)
 | 11. Deployment | 11.1, 11.2, 11.3, 11.4 | ☐ |
 
 **Total: 38 sessions across 12 phases.**
-**Completed: 9 / 38 sessions**
+**Completed: 10 / 38 sessions**
 
 ### Session Log
 
@@ -907,5 +907,6 @@ cancelled    → (terminal)
 | 2.1 — Vendor + Product Schema | `6afd101` | `Vendor` + `Product` models, GIN index on `search_vector`, auto-maintained by trigger |
 | 2.2 — Vendor CRUD | `dab5cb5` | 5 vendor endpoints (list/get/create/update/soft-delete), 20-test smoke script, blocks deletion if active products exist |
 | 2.3 — Product CRUD | `66461b8` | 5 product endpoints (list/get/create/update/soft-delete), 21-test smoke script, validates category+vendor, trigger refresh verified |
+| 2.4 — Smart Search Endpoint | `18d1364` | `GET /products/search` with FTS + ILIKE fallback + category scoping; 10-test smoke script, grocery/medicine operators properly scoped |
 
 After each session, paste the session's Confirmation Checkpoint back to the owner. Only after explicit "✅ confirmed" do we start the next session.
