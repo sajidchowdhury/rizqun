@@ -878,8 +878,8 @@ cancelled    → (terminal)
 
 | Phase | Sessions | Status |
 |-------|----------|--------|
-| 0. Setup | 0.1, 0.2, 0.3 | ☐ |
-| 1. Auth | 1.1, 1.2, 1.3 | ☐ |
+| 0. Setup | 0.1, 0.2, 0.3 | ✅ |
+| 1. Auth | 1.1, 1.2, 1.3 | 🔄 in progress |
 | 2. Catalog | 2.1, 2.2, 2.3, 2.4, 2.5 | ☐ |
 | 3. Orders | 3.1, 3.2, 3.3 | ☐ |
 | 4. Status | 4.1, 4.2, 4.3 | ☐ |
@@ -892,5 +892,14 @@ cancelled    → (terminal)
 | 11. Deployment | 11.1, 11.2, 11.3, 11.4 | ☐ |
 
 **Total: 38 sessions across 12 phases.**
+**Completed: 3 / 38 sessions**
+
+### Session Log
+
+| Session | Commit | Summary |
+|---------|--------|---------|
+| 0.1 — Repo & Local Environment | `ada9f2b` | Node + TS + Express skeleton, `/health` endpoint, env config with Zod |
+| 0.2 — Prisma + PostgreSQL Setup | `82a9ee7` | PG 17 (user-space), `rizqun_db`, initial `User` model, DB probe on `/health` |
+| 0.3 — Linting, Formatting, Project Structure | `9915a44` | ESLint 9 flat config, Prettier, folder skeleton, code-quality docs |
 
 After each session, paste the session's Confirmation Checkpoint back to the owner. Only after explicit "✅ confirmed" do we start the next session.
