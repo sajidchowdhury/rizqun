@@ -881,7 +881,7 @@ cancelled    → (terminal)
 | 0. Setup | 0.1, 0.2, 0.3 | ✅ |
 | 1. Auth | 1.1, 1.2, 1.3 | ✅ |
 | 2. Catalog | 2.1, 2.2, 2.3, 2.4, 2.5 | ✅ |
-| 3. Orders | 3.1, 3.2, 3.3 | 🔄 next |
+| 3. Orders | 3.1, 3.2, 3.3 | 🔄 in progress |
 | 4. Status | 4.1, 4.2, 4.3 | ☐ |
 | 5. WhatsApp | 5.1, 5.2 | ☐ |
 | 6. Edit Pending | 6.1, 6.2, 6.3 | ☐ |
@@ -892,7 +892,7 @@ cancelled    → (terminal)
 | 11. Deployment | 11.1, 11.2, 11.3, 11.4 | ☐ |
 
 **Total: 38 sessions across 12 phases.**
-**Completed: 11 / 38 sessions**
+**Completed: 12 / 38 sessions**
 
 ### Session Log
 
@@ -909,5 +909,6 @@ cancelled    → (terminal)
 | 2.3 — Product CRUD | `66461b8` | 5 product endpoints (list/get/create/update/soft-delete), 21-test smoke script, validates category+vendor, trigger refresh verified |
 | 2.4 — Smart Search Endpoint | `18d1364` | `GET /products/search` with FTS + ILIKE fallback + category scoping; 10-test smoke script, grocery/medicine operators properly scoped |
 | 2.5 — Quick-Add Product | `8745514` | `POST /products/quick-add` for operators — auto-SKU, category-access enforced, vendor validation; 12-test smoke script |
+| 3.1 — Order + OrderItem Schema | `5e9f9ed` | `Order` (status enum, orderCode, ratingToken), `OrderItem` (snapshots, denormalized vendor_id), `StatusLog` (append-only audit), `Rating` (1/order unique); cascade + uniqueness verified |
 
 After each session, paste the session's Confirmation Checkpoint back to the owner. Only after explicit "✅ confirmed" do we start the next session.
