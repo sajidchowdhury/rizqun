@@ -1,25 +1,18 @@
 import type { Request, Response } from 'express';
 import { registerSchema, loginSchema } from './auth.dto';
-import {
-  registerUser,
-  loginUser,
-  refreshTokens,
-  getUserById,
-} from './auth.service';
+import { registerUser, loginUser, refreshTokens, getUserById } from './auth.service';
 import { sendSuccess, sendError } from '../../utils/response';
 import { AppError } from '../../utils/AppError';
-import { REFRESH_COOKIE_NAME, refreshCookieOptions, clearRefreshCookieOptions } from '../../utils/cookie';
-import type { AccessTokenPayload } from '../../utils/jwt';
+import {
+  REFRESH_COOKIE_NAME,
+  refreshCookieOptions,
+  clearRefreshCookieOptions,
+} from '../../utils/cookie';
 
-// Shape of `req.user` once the auth middleware (Session 1.3) is in place.
-// For now we cast manually — keep this type here so the controller is ready.
-interface AuthedRequest extends Request {
-  user?: AccessTokenPayload;
-}
+// `req.user` is typed globally via src/middlewares/types.d.ts.
 
 // ─── POST /auth/register ──────────────────────────────────────
-// NOTE: Session 1.2 leaves this OPEN. Session 1.3 will add the
-// `requireRole('super_admin')` middleware on this route.
+// Protected by `authenticate + requireRole('super_admin')` in routes.
 export async function register(req: Request, res: Response): Promise<void> {
   const parsed = registerSchema.safeParse(req.body);
   if (!parsed.success) {
@@ -70,20 +63,13 @@ export async function logout(_req: Request, res: Response): Promise<void> {
 }
 
 // ─── GET /auth/me ─────────────────────────────────────────────
-// NOTE: Session 1.2 leaves this OPEN-ish — the auth middleware
-// (added in Session 1.3) will inject `req.user`. For now we accept
-// a manual `userId` from a query param so we can test the service.
-export async function me(req: AuthedRequest, res: Response): Promise<void> {
-  // Prefer the authenticated user (set by middleware in Session 1.3)
-  const authUser = req.user;
-
-  // Fallback for testing before middleware exists: ?userId=1
-  const userId = authUser?.userId ?? Number(req.query.userId);
-
-  if (!userId || Number.isNaN(userId)) {
+// Protected by `authenticate` in routes. req.user is guaranteed to be set,
+// but we guard defensively in case the route is misconfigured in the future.
+export async function me(req: Request, res: Response): Promise<void> {
+  const userId = req.user?.userId;
+  if (!userId) {
     throw new AppError(401, 'Not authenticated');
   }
-
   const user = await getUserById(userId);
   sendSuccess(res, { user }, 'Current user');
 }

@@ -13,7 +13,7 @@ import type { Request, Response, NextFunction, RequestHandler } from 'express';
  * In Express 5 this wrapper is no longer needed (async support is built-in).
  */
 export function asyncHandler(
-  fn: (req: Request, res: Response, next: NextFunction) => Promise<void> | void
+  fn: (req: Request, res: Response, next: NextFunction) => Promise<void> | void,
 ): RequestHandler {
   return (req, res, next) => {
     Promise.resolve(fn(req, res, next)).catch(next);

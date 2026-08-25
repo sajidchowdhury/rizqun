@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# One-shot auth test — starts server, runs tests, kills server.
+# One-shot auth+middleware test — starts server, runs tests, kills server.
 # Run with: bash scripts/test-auth-full.sh
 
 cd /home/z/my-project/rizqun
@@ -39,7 +39,7 @@ pp() { python3 -m json.tool 2>/dev/null || cat; }
 
 echo ""
 echo "═════════════════════════════════════════════════════════"
-echo "  Rizqun — Auth endpoints smoke test"
+echo "  Rizqun — Auth + Middleware smoke test"
 echo "═════════════════════════════════════════════════════════"
 
 echo ""
@@ -49,22 +49,47 @@ LOGIN=$(curl -sS --max-time 5 -c $CJ -X POST http://localhost:3000/auth/login \
   -d '{"email":"admin@rizqun.com","password":"ChangeMeInProduction123!"}')
 echo "$LOGIN" | pp
 
-ACCESS=$(echo "$LOGIN" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['data']['accessToken'])" 2>/dev/null || echo "")
-echo "Access token (first 30 chars): ${ACCESS:0:30}..."
+ADMIN_ACCESS=$(echo "$LOGIN" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['data']['accessToken'])" 2>/dev/null || echo "")
+echo "Admin access token (first 30 chars): ${ADMIN_ACCESS:0:30}..."
 
 echo ""
-echo "── 2. GET /auth/me (with token) ─────────────────────────"
+echo "── 2. GET /auth/me (with valid admin token) ─────────────"
 curl -sS --max-time 5 http://localhost:3000/auth/me \
-  -H "Authorization: Bearer $ACCESS" | pp
+  -H "Authorization: Bearer $ADMIN_ACCESS" | pp
 
 echo ""
-echo "── 3. GET /auth/me (without token → expect 401) ────────"
+echo "── 3. GET /auth/me (no token → expect 401) ───────────────"
 curl -sS --max-time 5 -o /tmp/r.json -w "HTTP %{http_code}\n" http://localhost:3000/auth/me
 cat /tmp/r.json | pp
 
 echo ""
-echo "── 4. POST /auth/register (new user) ────────────────────"
+echo "── 4. GET /auth/me (malformed header → expect 401) ───────"
+curl -sS --max-time 5 -o /tmp/r.json -w "HTTP %{http_code}\n" http://localhost:3000/auth/me \
+  -H "Authorization: NotBearer foo"
+cat /tmp/r.json | pp
+
+echo ""
+echo "── 5. GET /auth/me (?userId=2 fallback NO LONGER works) ─"
+curl -sS --max-time 5 -o /tmp/r.json -w "HTTP %{http_code}\n" "http://localhost:3000/auth/me?userId=2"
+cat /tmp/r.json | pp
+
+echo ""
+echo "── 6. POST /auth/register (no token → expect 401) ────────"
+curl -sS --max-time 5 -o /tmp/r.json -w "HTTP %{http_code}\n" -X POST http://localhost:3000/auth/register \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "name":"Should Fail",
+    "email":"fail1@rizqun.com",
+    "phone":"01712345678",
+    "password":"Password123",
+    "categoryAccess":["grocery"]
+  }'
+cat /tmp/r.json | pp
+
+echo ""
+echo "── 7. Create a regular user via admin token ─────────────"
 curl -sS --max-time 5 -X POST http://localhost:3000/auth/register \
+  -H "Authorization: Bearer $ADMIN_ACCESS" \
   -H 'Content-Type: application/json' \
   -d '{
     "name":"Test Operator",
@@ -76,12 +101,22 @@ curl -sS --max-time 5 -X POST http://localhost:3000/auth/register \
   }' | pp
 
 echo ""
-echo "── 5. POST /auth/register (duplicate email → expect 409) ─"
+echo "── 8. Login as operator ──────────────────────────────────"
+OP_LOGIN=$(curl -sS --max-time 5 -c /tmp/op-cookies.txt -X POST http://localhost:3000/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"operator@rizqun.com","password":"Password123"}')
+echo "$OP_LOGIN" | pp
+OP_ACCESS=$(echo "$OP_LOGIN" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['data']['accessToken'])" 2>/dev/null || echo "")
+echo "Operator access token (first 30 chars): ${OP_ACCESS:0:30}..."
+
+echo ""
+echo "── 9. POST /auth/register as operator (expect 403) ──────"
 curl -sS --max-time 5 -o /tmp/r.json -w "HTTP %{http_code}\n" -X POST http://localhost:3000/auth/register \
+  -H "Authorization: Bearer $OP_ACCESS" \
   -H 'Content-Type: application/json' \
   -d '{
-    "name":"Test Operator 2",
-    "email":"operator@rizqun.com",
+    "name":"Should Fail",
+    "email":"fail2@rizqun.com",
     "phone":"01712345679",
     "password":"Password123",
     "categoryAccess":["grocery"]
@@ -89,40 +124,32 @@ curl -sS --max-time 5 -o /tmp/r.json -w "HTTP %{http_code}\n" -X POST http://loc
 cat /tmp/r.json | pp
 
 echo ""
-echo "── 6. POST /auth/register (invalid phone → expect 400) ───"
-curl -sS --max-time 5 -o /tmp/r.json -w "HTTP %{http_code}\n" -X POST http://localhost:3000/auth/register \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "name":"Test",
-    "email":"test2@rizqun.com",
-    "phone":"123",
-    "password":"Password123",
-    "categoryAccess":[]
-  }'
-cat /tmp/r.json | pp
+echo "── 10. GET /auth/me as operator (verify categoryFilter) ──"
+curl -sS --max-time 5 http://localhost:3000/auth/me \
+  -H "Authorization: Bearer $OP_ACCESS" | pp
 
 echo ""
-echo "── 7. POST /auth/login (wrong password → expect 401) ────"
+echo "── 11. POST /auth/login (wrong password → expect 401) ───"
 curl -sS --max-time 5 -o /tmp/r.json -w "HTTP %{http_code}\n" -X POST http://localhost:3000/auth/login \
   -H 'Content-Type: application/json' \
   -d '{"email":"admin@rizqun.com","password":"wrongpassword"}'
 cat /tmp/r.json | pp
 
 echo ""
-echo "── 8. POST /auth/refresh (use cookie from login) ───────"
+echo "── 12. POST /auth/refresh (use cookie from admin login) ─"
 curl -sS --max-time 5 -b $CJ -c $CJ -X POST http://localhost:3000/auth/refresh | pp
 
 echo ""
-echo "── 9. POST /auth/refresh (no cookie → expect 401) ────────"
+echo "── 13. POST /auth/refresh (no cookie → expect 401) ───────"
 curl -sS --max-time 5 -o /tmp/r.json -w "HTTP %{http_code}\n" -X POST http://localhost:3000/auth/refresh
 cat /tmp/r.json | pp
 
 echo ""
-echo "── 10. POST /auth/logout ─────────────────────────────────"
+echo "── 14. POST /auth/logout ─────────────────────────────────"
 curl -sS --max-time 5 -b $CJ -c $CJ -X POST http://localhost:3000/auth/logout | pp
 
 echo ""
-echo "── 11. POST /auth/refresh (after logout → expect 401) ──"
+echo "── 15. POST /auth/refresh (after logout → expect 401) ───"
 curl -sS --max-time 5 -b $CJ -o /tmp/r.json -w "HTTP %{http_code}\n" -X POST http://localhost:3000/auth/refresh
 cat /tmp/r.json | pp
 
@@ -136,7 +163,7 @@ echo ""
 echo "Cleaning up test data..."
 PGPASSWORD=rizqun_password /home/z/.local/pg-extract/client/usr/lib/postgresql/17/bin/psql \
   -h 127.0.0.1 -p 5432 -U rizqun_user -d rizqun_db \
-  -c "DELETE FROM users WHERE email = 'operator@rizqun.com';" 2>&1 | tail -3
+  -c "DELETE FROM users WHERE email IN ('operator@rizqun.com', 'fail1@rizqun.com', 'fail2@rizqun.com');" 2>&1 | tail -3
 
 echo "Stopping server..."
 kill $SRV_PID 2>/dev/null

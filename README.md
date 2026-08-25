@@ -117,6 +117,52 @@ unset DATABASE_URL && npx tsx scripts/db-smoke-test.ts
 | `npx prisma studio` | Open DB GUI at `localhost:5555` |
 | `npx tsx scripts/db-smoke-test.ts` | Run DB CRUD smoke test (CAUTION: clears users table) |
 
+## Auth & permissions
+
+### Endpoints
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| POST | `/auth/login` | public | Login — returns access token + sets refresh cookie |
+| POST | `/auth/refresh` | refresh cookie | Issues new access token + rotates refresh cookie |
+| POST | `/auth/logout` | public | Clears refresh cookie |
+| POST | `/auth/register` | `super_admin` | Creates a new user (operator or super_admin) |
+| GET | `/auth/me` | any authed | Returns the current user |
+
+### Middlewares (in `src/middlewares/`)
+
+| Middleware | Purpose |
+|------------|---------|
+| `authenticate` | Verifies `Authorization: Bearer <token>`, sets `req.user` |
+| `requireRole(...roles)` | Allows only the specified roles — must come after `authenticate` |
+| `categoryScope` | Reads `req.user.categoryAccess`, sets `req.categoryFilter` (`{ hasAll, slugs }`) |
+
+### Quick start
+
+```bash
+# 1. Login as super admin (created by seed)
+curl -X POST http://localhost:3000/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"admin@rizqun.com","password":"ChangeMeInProduction123!"}'
+
+# 2. Use the access token
+TOKEN="<from step 1>"
+curl http://localhost:3000/auth/me -H "Authorization: Bearer $TOKEN"
+
+# 3. Create a new operator (super_admin only)
+curl -X POST http://localhost:3000/auth/register \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "name":"Operator 1",
+    "email":"op1@rizqun.com",
+    "phone":"01712345678",
+    "password":"Password123",
+    "role":"user",
+    "categoryAccess":["grocery"]
+  }'
+```
+
 ## Code quality
 
 This project uses:

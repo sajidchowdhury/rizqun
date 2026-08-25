@@ -49,7 +49,9 @@ function toPublicUser(user: {
 
 // ─── Register ──────────────────────────────────────────────────
 
-export async function registerUser(input: RegisterInput): Promise<{ user: PublicUser; accessToken: string }> {
+export async function registerUser(
+  input: RegisterInput,
+): Promise<{ user: PublicUser; accessToken: string }> {
   // Check for existing email
   const existing = await prisma.user.findUnique({ where: { email: input.email } });
   if (existing) {
@@ -90,7 +92,7 @@ export async function registerUser(input: RegisterInput): Promise<{ user: Public
 // ─── Login ──────────────────────────────────────────────────────
 
 export async function loginUser(
-  input: LoginInput
+  input: LoginInput,
 ): Promise<{ user: PublicUser; accessToken: string; refreshToken: string }> {
   const user = await prisma.user.findUnique({ where: { email: input.email } });
   if (!user) {
@@ -122,7 +124,9 @@ export async function loginUser(
 
 // ─── Refresh ────────────────────────────────────────────────────
 
-export async function refreshTokens(refreshToken: string): Promise<{ accessToken: string; refreshToken: string }> {
+export async function refreshTokens(
+  refreshToken: string,
+): Promise<{ accessToken: string; refreshToken: string }> {
   const payload = verifyRefreshToken(refreshToken);
 
   const user = await prisma.user.findUnique({ where: { id: payload.userId } });

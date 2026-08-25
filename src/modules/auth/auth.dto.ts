@@ -8,7 +8,10 @@ const bangladeshiPhoneRegex = /^(\+?880|0)1[3-9]\d{8}$/;
 export const phoneSchema = z
   .string()
   .trim()
-  .regex(bangladeshiPhoneRegex, 'Phone must be a valid Bangladeshi number (e.g. 017XXXXXXXX or +88017XXXXXXXX)');
+  .regex(
+    bangladeshiPhoneRegex,
+    'Phone must be a valid Bangladeshi number (e.g. 017XXXXXXXX or +88017XXXXXXXX)',
+  );
 
 // ─── Register ──────────────────────────────────────────────────
 // Used by POST /auth/register (super_admin only — enforced in Session 1.3).
