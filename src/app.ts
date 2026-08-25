@@ -7,6 +7,7 @@ import { env } from './config/env';
 import { prisma } from './config/prisma';
 import { AppError } from './utils/AppError';
 import authRoutes from './modules/auth/auth.routes';
+import vendorRoutes from './modules/vendors/vendors.routes';
 
 const app = express();
 
@@ -34,6 +35,7 @@ app.use(morgan(env.nodeEnv === 'production' ? 'combined' : 'dev'));
 
 // ─── Routes ─────────────────────────────────────────────────────
 app.use('/auth', authRoutes);
+app.use('/vendors', vendorRoutes);
 
 // ─── Health check ──────────────────────────────────────────────
 app.get('/health', async (_req: Request, res: Response) => {

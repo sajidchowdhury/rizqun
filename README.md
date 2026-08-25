@@ -128,6 +128,11 @@ unset DATABASE_URL && npx tsx scripts/db-smoke-test.ts
 | POST | `/auth/logout` | public | Clears refresh cookie |
 | POST | `/auth/register` | `super_admin` | Creates a new user (operator or super_admin) |
 | GET | `/auth/me` | any authed | Returns the current user |
+| GET | `/vendors` | any authed | List vendors (paginated, filter by `category`/`isActive`/`search`) |
+| GET | `/vendors/:id` | any authed | Get one vendor |
+| POST | `/vendors` | `super_admin` | Create a vendor |
+| PATCH | `/vendors/:id` | `super_admin` | Update a vendor (partial) |
+| DELETE | `/vendors/:id` | `super_admin` | Soft-delete a vendor (blocked if active products exist) |
 
 ### Middlewares (in `src/middlewares/`)
 
