@@ -892,7 +892,7 @@ cancelled    → (terminal)
 | 11. Deployment | 11.1, 11.2, 11.3, 11.4 | ☐ |
 
 **Total: 38 sessions across 12 phases.**
-**Completed: 7 / 38 sessions**
+**Completed: 8 / 38 sessions**
 
 ### Session Log
 
@@ -905,5 +905,6 @@ cancelled    → (terminal)
 | 1.2 — Auth Service (Register + Login + Refresh) | `988c3d0` | JWT auth with httpOnly refresh cookie, 5 endpoints, asyncHandler wrapper |
 | 1.3 — Auth Middlewares | `3e58c1e` | `authenticate`, `requireRole`, `categoryScope` middlewares; locked down `/register` to super_admin and `/me` to authed users |
 | 2.1 — Vendor + Product Schema | `6afd101` | `Vendor` + `Product` models, GIN index on `search_vector`, auto-maintained by trigger |
+| 2.2 — Vendor CRUD | `dab5cb5` | 5 vendor endpoints (list/get/create/update/soft-delete), 20-test smoke script, blocks deletion if active products exist |
 
 After each session, paste the session's Confirmation Checkpoint back to the owner. Only after explicit "✅ confirmed" do we start the next session.
