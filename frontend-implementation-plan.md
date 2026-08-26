@@ -1833,8 +1833,8 @@ Phase 6 — Dashboard
   ✓ 6.4  Donut chart: category breakdown
 
 Phase 7 — User Management
-  ☐ 7.1  User list + CRUD (admin only)
-  ☐ 7.2  Category access editor
+  ✓ 7.1  User list + CRUD (admin only)
+  ✓ 7.2  Category access editor
 
 Phase 8 — Rating System
   ☐ 8.1  Generate rating link from delivered order
