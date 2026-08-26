@@ -5,16 +5,17 @@
 //
 //   Order: ORD-2026-00001
 //   Vendor: Hashem Grocery
-//   Customer: Rahim Uddin
-//   Phone: 01712345678
-//   Address: House 12, Road 5, Dhanmondi
 //
 //   Items:
 //   1. Rice (Basmati) — 5 kg
 //   2. *NEW* Sugar — 2 kg
 //
-//   Subtotal: 790 BDT
 //   Please confirm availability. Thank you.
+//
+// NOTE: Customer information (name, phone, address) and prices (subtotal,
+// line totals) are intentionally NOT included. The vendor only needs to
+// know what products to prepare — not who the customer is or how much
+// the operator is charging the customer.
 //
 // `*NEW*` markers (WhatsApp bold syntax) appear on items added after the
 // order was finalized, so the vendor can spot late additions at a glance.
@@ -50,11 +51,6 @@ export function buildVendorCopyText(ctx: CopyContext): string {
 
   lines.push(`Order: ${ctx.orderCode}`);
   lines.push(`Vendor: ${ctx.vendorName}`);
-  lines.push(`Customer: ${ctx.customerName}`);
-  lines.push(`Phone: ${ctx.customerPhone}`);
-  if (ctx.customerAddress) {
-    lines.push(`Address: ${ctx.customerAddress}`);
-  }
 
   lines.push('');
   lines.push('Items:');
@@ -67,7 +63,6 @@ export function buildVendorCopyText(ctx: CopyContext): string {
   });
 
   lines.push('');
-  lines.push(`Subtotal: ${ctx.subtotal} BDT`);
   lines.push('Please confirm availability. Thank you.');
 
   return lines.join('\n');

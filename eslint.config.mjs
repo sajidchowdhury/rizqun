@@ -15,6 +15,7 @@ export default tseslint.config(
       'coverage/',
       'prisma/migrations/**', // generated SQL — not lintable
       'scripts/', // one-off scripts; relaxed
+      'ui/', // frontend subproject — has its own eslint config
     ],
   },
 
