@@ -40,10 +40,16 @@ export function Sidebar() {
         onClick={() => setMobileOpen(false)}
       />
 
-      {/* Sidebar itself — slides in on mobile, persistent on md+ */}
+      {/* Sidebar itself — slides in on mobile, persistent on md+.
+          Note: Tailwind v4's `.inset-y-0` generates `inset-block: 0`
+          (logical property). Chrome doesn't auto-stretch a fixed-position
+          element with only `inset-block: 0` — it needs an explicit height.
+          So we add `h-screen` (100vh) to guarantee the sidebar fills the
+          viewport vertically, regardless of how the browser interprets
+          `inset-block`. */}
       <aside
         className={cn(
-          'fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r bg-sidebar text-sidebar-foreground transition-transform md:translate-x-0',
+          'fixed inset-y-0 left-0 z-50 flex h-screen w-64 flex-col border-r bg-sidebar text-sidebar-foreground transition-transform md:translate-x-0',
           mobileOpen ? 'translate-x-0' : '-translate-x-full',
         )}
         aria-label="Main navigation"
