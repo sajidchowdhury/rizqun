@@ -289,6 +289,27 @@ pm2 set pm2-logrotate:compress true
 
 All secrets are loaded from `.env` (never committed). See `.env.example` for the full list. In production, set these via your VPS environment or a `.env` file with restricted permissions (`chmod 600 .env`).
 
+### Nginx reverse proxy + TLS
+
+See [`deploy/nginx/README.md`](./deploy/nginx/README.md) for the full deployment guide.
+
+Quick summary:
+1. Copy `deploy/nginx/rizqun.conf` → `/etc/nginx/sites-available/rizqun`
+2. Replace `YOUR_DOMAIN` with your domain
+3. `certbot --nginx -d yourdomain.com -d www.yourdomain.com`
+4. Update `CORS_ORIGINS` + `APP_BASE_URL` in `.env` to HTTPS
+5. `pm2 restart rizqun-api && systemctl reload nginx`
+
+Features:
+- HTTP → HTTPS 301 redirect
+- TLS 1.2/1.3 with modern ciphers
+- HSTS (1 year, includeSubDomains, preload)
+- SPA fallback for frontend routing
+- Per-route reverse proxy to Node.js on `localhost:3000`
+- Static file caching (30-day expiry)
+- Gzip compression
+- Auto-renewing SSL certificates via Let's Encrypt
+
 ## Code quality
 
 This project uses:
