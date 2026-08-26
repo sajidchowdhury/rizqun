@@ -73,6 +73,25 @@ export default tseslint.config(
     },
   },
 
+  // ─── shadcn/ui generated primitives (relax fast-refresh) ────
+  // These files export both components and `xxxVariants` constants.
+  // Splitting would diverge from upstream shadcn, so we relax the
+  // fast-refresh rule for the ui/ folder.
+  {
+    files: ['src/components/ui/**/*.tsx'],
+    rules: {
+      'react-refresh/only-export-components': 'off',
+    },
+  },
+
+  // ─── Context providers export a React.Context (intentional) ──
+  {
+    files: ['src/contexts/**/*.tsx'],
+    rules: {
+      'react-refresh/only-export-components': 'off',
+    },
+  },
+
   // ─── Config files (vite.config.ts, etc.) ───────────────────────
   {
     files: ['*.config.{ts,js,mjs,cjs}'],
