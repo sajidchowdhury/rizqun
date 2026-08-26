@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { finalize, list, getOne, updateStatus, listPending } from './orders.controller';
+import { finalize, list, getOne, updateStatus, listPending, cancel } from './orders.controller';
 import { asyncHandler } from '../../utils/asyncHandler';
 import { authenticate } from '../../middlewares/auth.middleware';
 
@@ -18,9 +18,11 @@ router.get('/', asyncHandler(list));
 // doesn't treat "pending" as an order id.
 router.get('/pending', asyncHandler(listPending));
 
-// PATCH /orders/:id/status — update status (must come before GET /:id so the
-// /status sub-path is matched; Express routes are matched in declaration order)
+// PATCH /orders/:id/status — update status
 router.patch('/:id/status', asyncHandler(updateStatus));
+
+// DELETE /orders/:id — cancel (soft-delete) an order
+router.delete('/:id', asyncHandler(cancel));
 
 // GET /orders/:id — full order detail (with items + vendors)
 router.get('/:id', asyncHandler(getOne));

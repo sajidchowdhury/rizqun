@@ -4,6 +4,7 @@ import {
   listOrdersQuerySchema,
   updateOrderStatusSchema,
   listPendingOrdersQuerySchema,
+  cancelOrderSchema,
 } from './orders.dto';
 import {
   finalizeOrder,
@@ -11,6 +12,7 @@ import {
   getOrderById,
   updateOrderStatus,
   listPendingOrders,
+  cancelOrder,
 } from './orders.service';
 import { sendSuccess } from '../../utils/response';
 import { AppError } from '../../utils/AppError';
@@ -119,4 +121,29 @@ export async function listPending(req: Request, res: Response): Promise<void> {
 
   const result = await listPendingOrders(parsed.data, { userId, role });
   sendSuccess(res, result, 'Pending orders retrieved');
+}
+
+// ─── DELETE /orders/:id (cancel / soft-delete) ───────────────
+// Sets status to 'cancelled' and inserts a status_log row.
+// Only allowed from pending, waiting_vendor, or preparing.
+// Order is never physically removed — preserves audit trail.
+export async function cancel(req: Request, res: Response): Promise<void> {
+  const id = Number(req.params.id);
+  if (Number.isNaN(id) || id <= 0) {
+    throw new AppError(400, 'Invalid order id');
+  }
+
+  const parsed = cancelOrderSchema.safeParse(req.body ?? {});
+  if (!parsed.success) {
+    throw new AppError(400, parsed.error.issues[0]?.message ?? 'Invalid input');
+  }
+
+  const userId = req.user?.userId;
+  const role = req.user?.role;
+  if (!userId || !role) {
+    throw new AppError(401, 'Not authenticated');
+  }
+
+  const result = await cancelOrder(id, parsed.data, { userId, role });
+  sendSuccess(res, { order: result }, 'Order cancelled');
 }

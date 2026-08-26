@@ -187,3 +187,19 @@ export interface PaginatedPendingOrders {
     totalPages: number;
   };
 }
+
+// ─── Cancel order (DELETE /orders/:id) ────────────────────────
+// Soft-delete — sets status to 'cancelled' and inserts a status_log row.
+// Order is NEVER physically deleted (preserves audit trail for historical reports).
+//
+// Body is optional — may include a `note` explaining why the order was cancelled
+// (e.g. 'Customer changed mind', 'Duplicate order', 'Out of stock').
+
+export const cancelOrderSchema = z
+  .object({
+    note: z.string().trim().max(500).optional(),
+  })
+  .optional()
+  .default({});
+
+export type CancelOrderInput = z.infer<typeof cancelOrderSchema>;

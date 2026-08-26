@@ -14,6 +14,7 @@ import type {
   ListPendingOrdersQuery,
   PaginatedPendingOrders,
   PendingOrderListItem,
+  CancelOrderInput,
 } from './orders.dto';
 
 // ─── Helpers ───────────────────────────────────────────────────
@@ -548,5 +549,74 @@ export async function listPendingOrders(
       total,
       totalPages: Math.ceil(total / query.limit),
     },
+  };
+}
+
+// ─── Cancel order (DELETE /orders/:id) ────────────────────────
+//
+// Soft-delete — sets status to 'cancelled' and inserts a status_log row.
+// The order row + its items + logs are NEVER physically removed.
+//
+// Allowed only from: pending, waiting_vendor, preparing (EDITABLE_STATUSES).
+// Once picked_up or delivered, cancellation is blocked (the order is already
+// in the customer's hands).
+//
+// If the order is already cancelled, returns 409 (not silently idempotent —
+// cancelling an already-cancelled order is almost always a UI mistake).
+
+export async function cancelOrder(
+  orderId: number,
+  input: CancelOrderInput,
+  ctx: ListContext,
+): Promise<{ id: number; status: string; orderCode: string }> {
+  const order = await prisma.order.findUnique({
+    where: { id: orderId },
+    select: { id: true, orderCode: true, status: true, userId: true },
+  });
+
+  if (!order) {
+    throw new AppError(404, 'Order not found');
+  }
+
+  // Scope check — non-super_admin users can only cancel their own orders
+  if (ctx.role !== 'super_admin' && order.userId !== ctx.userId) {
+    throw new AppError(404, 'Order not found');
+  }
+
+  // Already cancelled → 409
+  if (order.status === 'cancelled') {
+    throw new AppError(409, 'Order is already cancelled');
+  }
+
+  // Locked states — cannot cancel once picked_up or delivered
+  if (!EDITABLE_STATUSES.includes(order.status)) {
+    throw new AppError(
+      409,
+      `Cannot cancel order in status '${order.status}'. Only orders in ${EDITABLE_STATUSES.join(', ')} can be cancelled.`,
+    );
+  }
+
+  // Perform the transition in a transaction (status_log + order update)
+  await prisma.$transaction(async (tx) => {
+    await tx.statusLog.create({
+      data: {
+        orderId: order.id,
+        fromStatus: order.status as OrderStatus,
+        toStatus: 'cancelled',
+        changedBy: ctx.userId,
+        note: input?.note ?? 'Order cancelled',
+      },
+    });
+
+    await tx.order.update({
+      where: { id: order.id },
+      data: { status: 'cancelled' },
+    });
+  });
+
+  return {
+    id: order.id,
+    status: 'cancelled',
+    orderCode: order.orderCode,
   };
 }

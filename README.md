@@ -145,6 +145,7 @@ unset DATABASE_URL && npx tsx scripts/db-smoke-test.ts
 | GET | `/orders/pending?page=&limit=&customer=` | any authed (scoped) | Pending list — only `pending`/`waiting_vendor`/`preparing`, sorted oldest-first, with `minutesSinceCreated` |
 | GET | `/orders/:id` | any authed (scoped) | Full order detail with items + nested vendor info (404 if not own) |
 | PATCH | `/orders/:id/status` | any authed (scoped) | Update status — validates transition matrix, appends status_log row, sets deliveredAt |
+| DELETE | `/orders/:id` | any authed (scoped) | Cancel (soft-delete) — only from pending/waiting_vendor/preparing; preserves audit trail |
 
 ### Middlewares (in `src/middlewares/`)
 
