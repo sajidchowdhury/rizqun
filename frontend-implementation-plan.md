@@ -1827,10 +1827,10 @@ Phase 5 — Done List & History
   ✓ 5.2  Order history detail + re-print vendor groups
 
 Phase 6 — Dashboard
-  ☐ 6.1  Dashboard layout + summary cards
-  ☐ 6.2  Bar chart: orders per day
-  ☐ 6.3  Line chart + step time bars
-  ☐ 6.4  Donut chart: category breakdown
+  ✓ 6.1  Dashboard layout + summary cards
+  ✓ 6.2  Bar chart: orders per day
+  ✓ 6.3  Line chart + step time bars
+  ✓ 6.4  Donut chart: category breakdown
 
 Phase 7 — User Management
   ☐ 7.1  User list + CRUD (admin only)
