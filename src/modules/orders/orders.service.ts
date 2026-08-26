@@ -2,6 +2,7 @@ import { Prisma, type OrderStatus } from '@prisma/client';
 import crypto from 'node:crypto';
 import { prisma } from '../../config/prisma';
 import { env } from '../../config/env';
+import { logger } from '../../config/logger';
 import { AppError } from '../../utils/AppError';
 import { generateUniqueOrderCode } from '../../utils/orderCode';
 import { buildVendorCopyText, buildWhatsappUrl } from '../../utils/whatsapp';
@@ -475,6 +476,19 @@ export async function updateOrderStatus(
       },
     });
   });
+
+  // Structured log: status transition
+  logger.info(
+    {
+      orderId: order.id,
+      orderCode: order.orderCode,
+      fromStatus,
+      toStatus,
+      changedBy: ctx.userId,
+      note: input.note,
+    },
+    `Order ${order.orderCode}: ${fromStatus} → ${toStatus}`,
+  );
 
   return toPublicOrder(updated);
 }
