@@ -1,0 +1,26 @@
+name,sku,price,category_slug,vendor_name,unit
+Paracetamol 500mg,MED-PARA-500,120,medicine,City Pharma,box
+Amoxicillin 250mg,MED-AMOX-250,350,medicine,City Pharma,box
+Omeprazole 20mg,MED-OMEP-20,200,medicine,City Pharma,box
+Metformin 500mg,MED-METF-500,150,medicine,City Pharma,box
+Aspirin 75mg,MED-ASP-75,80,medicine,City Pharma,box
+Cough Syrup 100ml,MED-COUGH-100,180,medicine,City Pharma,bottle
+Antacid Liquid 200ml,MED-ANT-200,120,medicine,City Pharma,bottle
+Vitamin C 1000mg,MED-VITC-1000,250,medicine,City Pharma,box
+Ibuprofen 400mg,MED-IBU-400,90,medicine,City Pharma,box
+Cetirizine 10mg,MED-CET-10,60,medicine,City Pharma,box
+Rice Basmati 5kg,GRO-RICE-5KG,850,grocery,Hashem Grocery Store,bag
+Rice Miniket 5kg,GRO-RICE-MIN-5KG,520,grocery,Hashem Grocery Store,bag
+Sugar 1kg,GRO-SUGAR-1KG,95,grocery,Hashem Grocery Store,kg
+Lentils (Masoor) 1kg,GRO-LENTIL-1KG,130,grocery,Hashem Grocery Store,kg
+Cooking Oil 5L,GRO-OIL-5L,780,grocery,Hashem Grocery Store,bottle
+Flour (Atta) 2kg,GRO-FLOUR-2KG,110,grocery,Hashem Grocery Store,kg
+Salt 1kg,GRO-SALT-1KG,35,grocery,Hashem Grocery Store,kg
+Tea Leaves 400g,GRO-TEA-400,320,grocery,Hashem Grocery Store,pcs
+Biscuits (Family Pack),GRO-BISC-FAM,55,grocery,Hashem Grocery Store,pcs
+Milk Powder 400g,GRO-MILK-400,580,grocery,Hashem Grocery Store,pcs
+Bottled Water 1L,OTH-WATER-1L,20,other,General Supplies,pcs
+Disposable Cups 50pk,OTH-CUPS-50,120,other,General Supplies,pcs
+Trash Bags 30pk,OTH-TRASH-30,85,other,General Supplies,pcs
+Batteries AA 4pk,OTH-BATT-AA4,150,other,General Supplies,pcs
+Paper Towels 2pk,OTH-PAPER-2PK,65,other,General Supplies,pcs
