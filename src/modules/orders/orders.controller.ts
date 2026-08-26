@@ -19,6 +19,7 @@ import {
   updateOrder,
   addOrderItem,
   removeOrderItem,
+  getOrderAuditLog,
 } from './orders.service';
 import { sendSuccess } from '../../utils/response';
 import { AppError } from '../../utils/AppError';
@@ -249,4 +250,23 @@ export async function removeItem(req: Request, res: Response): Promise<void> {
 
   const order = await removeOrderItem(orderId, itemId, { userId, role });
   sendSuccess(res, { order }, 'Item removed from order');
+}
+
+// ─── GET /orders/:id/audit-log ───────────────────────────────
+// Returns the append-only status_log entries for an order (oldest-first).
+// Used by the dashboard's "time per step" metric + operator history view.
+export async function getAuditLog(req: Request, res: Response): Promise<void> {
+  const id = Number(req.params.id);
+  if (Number.isNaN(id) || id <= 0) {
+    throw new AppError(400, 'Invalid order id');
+  }
+
+  const userId = req.user?.userId;
+  const role = req.user?.role;
+  if (!userId || !role) {
+    throw new AppError(401, 'Not authenticated');
+  }
+
+  const result = await getOrderAuditLog(id, { userId, role });
+  sendSuccess(res, result, 'Audit log retrieved');
 }

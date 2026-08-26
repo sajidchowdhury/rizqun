@@ -20,6 +20,8 @@ import type {
   VendorGroup,
   UpdateOrderInput,
   AddOrderItemInput,
+  AuditLogEntry,
+  OrderAuditLog,
 } from './orders.dto';
 
 // ─── Helpers ───────────────────────────────────────────────────
@@ -1103,4 +1105,56 @@ export async function removeOrderItem(
   });
 
   return toPublicOrder(updated);
+}
+
+// ─── Get order audit log (GET /orders/:id/audit-log) ──────────
+//
+// Returns the append-only status_log entries for an order, oldest-first.
+// Each row carries a human-readable `note`:
+//   - Status transitions: optional operator note (e.g. "Vendor confirmed")
+//   - Item additions: 'added_item:<productId> (qty=N)'
+//   - Item removals: 'removed_item:<itemId> (was: <name> qty=N)'
+//   - Cancellations: optional reason (e.g. "Customer changed mind")
+//
+// Also denormalizes `changedByName` (from the users table) so the frontend
+// doesn't have to do a second lookup to show "changed by: <name>".
+
+export async function getOrderAuditLog(orderId: number, ctx: ListContext): Promise<OrderAuditLog> {
+  const order = await prisma.order.findUnique({
+    where: { id: orderId },
+    select: { id: true, orderCode: true, userId: true },
+  });
+
+  if (!order) {
+    throw new AppError(404, 'Order not found');
+  }
+
+  // Scope check — non-super_admin users can only access their own orders' audit logs
+  if (ctx.role !== 'super_admin' && order.userId !== ctx.userId) {
+    throw new AppError(404, 'Order not found');
+  }
+
+  const logs = await prisma.statusLog.findMany({
+    where: { orderId: order.id },
+    include: {
+      changer: { select: { id: true, name: true } },
+    },
+    orderBy: { id: 'asc' }, // oldest first — chronological order
+  });
+
+  const entries: AuditLogEntry[] = logs.map((log) => ({
+    id: log.id,
+    orderId: log.orderId,
+    fromStatus: log.fromStatus,
+    toStatus: log.toStatus,
+    changedById: log.changedBy,
+    changedByName: log.changer.name,
+    note: log.note,
+    changedAt: log.changedAt,
+  }));
+
+  return {
+    orderCode: order.orderCode,
+    entries,
+  };
 }

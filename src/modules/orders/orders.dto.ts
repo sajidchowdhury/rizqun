@@ -291,3 +291,33 @@ export const addOrderItemSchema = z.object({
 });
 
 export type AddOrderItemInput = z.infer<typeof addOrderItemSchema>;
+
+// ─── Audit log (GET /orders/:id/audit-log) ────────────────────
+// Returns the append-only status_log entries for an order, newest-first.
+// Used by:
+//   - The dashboard's "time per step" metric (compute diffs between adjacent
+//     `changed_at` timestamps)
+//   - Operators who want to see the full history of an order (transitions,
+//     item additions, item removals, cancellations)
+//
+// Each row's `note` field carries a human-readable description:
+//   - Status transitions: optional operator note (e.g. "Vendor confirmed")
+//   - Item additions: 'added_item:<productId> (qty=N)'
+//   - Item removals: 'removed_item:<itemId> (was: <name> qty=N)'
+//   - Cancellations: optional reason (e.g. "Customer changed mind")
+
+export interface AuditLogEntry {
+  id: number;
+  orderId: number;
+  fromStatus: string | null; // null for the very first entry (order creation)
+  toStatus: string;
+  changedById: number;
+  changedByName: string; // denormalized for display convenience
+  note: string | null;
+  changedAt: Date;
+}
+
+export interface OrderAuditLog {
+  orderCode: string;
+  entries: AuditLogEntry[];
+}

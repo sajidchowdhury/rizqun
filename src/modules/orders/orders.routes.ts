@@ -10,6 +10,7 @@ import {
   update,
   addItem,
   removeItem,
+  getAuditLog,
 } from './orders.controller';
 import { asyncHandler } from '../../utils/asyncHandler';
 import { authenticate } from '../../middlewares/auth.middleware';
@@ -43,6 +44,9 @@ router.delete('/:id/items/:itemId', asyncHandler(removeItem));
 
 // GET /orders/:id/vendor-groups — items grouped by vendor + copy text + wa.me URL
 router.get('/:id/vendor-groups', asyncHandler(getVendorGroups));
+
+// GET /orders/:id/audit-log — append-only status_log entries (oldest-first)
+router.get('/:id/audit-log', asyncHandler(getAuditLog));
 
 // DELETE /orders/:id — cancel (soft-delete) an order
 router.delete('/:id', asyncHandler(cancel));
