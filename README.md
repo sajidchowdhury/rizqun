@@ -140,6 +140,7 @@ unset DATABASE_URL && npx tsx scripts/db-smoke-test.ts
 | POST | `/products/quick-add` | any authed (scoped) | Operator-side quick-add — auto-generates SKU, scoped by user's `categoryAccess` |
 | PATCH | `/products/:id` | `super_admin` | Update a product (partial; SKU conflict → 409) |
 | DELETE | `/products/:id` | `super_admin` | Soft-delete a product (`isActive=false`) |
+| POST | `/orders` | any authed (scoped) | Finalize cart — snapshots product name/price, computes totals, creates order + status_log |
 
 ### Middlewares (in `src/middlewares/`)
 

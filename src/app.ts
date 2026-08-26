@@ -9,6 +9,7 @@ import { AppError } from './utils/AppError';
 import authRoutes from './modules/auth/auth.routes';
 import vendorRoutes from './modules/vendors/vendors.routes';
 import productRoutes from './modules/products/products.routes';
+import orderRoutes from './modules/orders/orders.routes';
 
 const app = express();
 
@@ -38,6 +39,7 @@ app.use(morgan(env.nodeEnv === 'production' ? 'combined' : 'dev'));
 app.use('/auth', authRoutes);
 app.use('/vendors', vendorRoutes);
 app.use('/products', productRoutes);
+app.use('/orders', orderRoutes);
 
 // ─── Health check ──────────────────────────────────────────────
 app.get('/health', async (_req: Request, res: Response) => {
