@@ -28,6 +28,21 @@ interface DashboardContext {
   role: string;
 }
 
+// Helper: round to 1 decimal place, preserving null.
+//
+// All dashboard minute-based metrics are rounded to 1 decimal so the API
+// returns clean, display-ready numbers (e.g. 4.6) instead of raw SQL AVG
+// floats (e.g. 1.0003833333333334). The frontend can format these further
+// if needed, but should never have to deal with floating-point noise.
+//
+// This helper is applied consistently to:
+//   - avgTotalMinutes (summary endpoint)
+//   - avgStepMinutes.* (summary endpoint, 4 transition keys)
+//   - avgMinutes (avg-time-per-day endpoint)
+function round1(value: number | null): number | null {
+  return value !== null ? Math.round(value * 10) / 10 : null;
+}
+
 // Helper: parse 'YYYY-MM' → [monthStart, monthEnd) as Date objects
 function parseMonthRange(monthStr: string): { start: Date; end: Date } {
   const [yearStr, monStr] = monthStr.split('-');
@@ -79,7 +94,7 @@ export async function getDashboardSummary(
 
   const doneCount = Number(summaryRows[0]?.done_count ?? 0n);
   const rawAvgTotal = summaryRows[0]?.avg_total_minutes ?? null;
-  const avgTotalMinutes = rawAvgTotal !== null ? Math.round(rawAvgTotal * 10) / 10 : null;
+  const avgTotalMinutes = round1(rawAvgTotal);
 
   // ─── 2. avgStepMinutes via window function on status_log ──
   //
@@ -169,10 +184,10 @@ export async function getDashboardSummary(
     doneCount,
     avgTotalMinutes,
     avgStepMinutes: {
-      pending_to_waiting_vendor: stepMap.get('pending->waiting_vendor') ?? null,
-      waiting_vendor_to_preparing: stepMap.get('waiting_vendor->preparing') ?? null,
-      preparing_to_picked_up: stepMap.get('preparing->picked_up') ?? null,
-      picked_up_to_delivered: stepMap.get('picked_up->delivered') ?? null,
+      pending_to_waiting_vendor: round1(stepMap.get('pending->waiting_vendor') ?? null),
+      waiting_vendor_to_preparing: round1(stepMap.get('waiting_vendor->preparing') ?? null),
+      preparing_to_picked_up: round1(stepMap.get('preparing->picked_up') ?? null),
+      picked_up_to_delivered: round1(stepMap.get('picked_up->delivered') ?? null),
     },
   };
 }
@@ -293,7 +308,7 @@ export async function getAvgTimePerDay(
     const avg = avgMap.get(dateStr) ?? null;
     data.push({
       date: dateStr,
-      avgMinutes: avg !== null ? Math.round(avg * 10) / 10 : null,
+      avgMinutes: round1(avg),
     });
   }
 

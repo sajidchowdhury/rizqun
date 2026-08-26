@@ -31,7 +31,7 @@ CJ=/tmp/rizqun-cookies.txt
 rm -f $CJ /tmp/r.json
 
 pp() { python3 -m json.tool 2>/dev/null || cat; }
-PSQL=/home/z/.local/pg-extract/client/usr/lib/postgresql/17/bin/psql
+PSQL=psql
 
 echo ""
 echo "═════════════════════════════════════════════════════════"
@@ -77,6 +77,8 @@ P1_ID=$(echo "$P1" | python3 -c "import sys,json; print(json.load(sys.stdin)['da
 echo "   ✓ Vendor=$VENDOR_ID Product=$P1_ID"
 
 # Helper: create + deliver an order (with small delays so step times are > 0)
+# Note: delays must be >= 7 seconds so each step time rounds to >= 0.1 min
+# (the dashboard rounds avgStepMinutes to 1 decimal place for display).
 create_delivered_order() {
   local name=$1
   local token=$2
@@ -85,19 +87,19 @@ create_delivered_order() {
     -H 'Content-Type: application/json' \
     -d "{\"customerName\":\"$name\",\"customerPhone\":\"01712345678\",\"items\":[{\"productId\":$P1_ID,\"qty\":1}]}" \
     | python3 -c "import sys,json; print(json.load(sys.stdin)['data']['order']['id'])")
-  sleep 1
+  sleep 7
   curl -sS --max-time 5 -X PATCH "http://localhost:3000/orders/$oid/status" \
     -H "Authorization: Bearer $token" -H 'Content-Type: application/json' \
     -d '{"status":"waiting_vendor"}' > /dev/null
-  sleep 1
+  sleep 7
   curl -sS --max-time 5 -X PATCH "http://localhost:3000/orders/$oid/status" \
     -H "Authorization: Bearer $token" -H 'Content-Type: application/json' \
     -d '{"status":"preparing"}' > /dev/null
-  sleep 1
+  sleep 7
   curl -sS --max-time 5 -X PATCH "http://localhost:3000/orders/$oid/status" \
     -H "Authorization: Bearer $token" -H 'Content-Type: application/json' \
     -d '{"status":"picked_up"}' > /dev/null
-  sleep 1
+  sleep 7
   curl -sS --max-time 5 -X PATCH "http://localhost:3000/orders/$oid/status" \
     -H "Authorization: Bearer $token" -H 'Content-Type: application/json' \
     -d '{"status":"delivered"}' > /dev/null
@@ -130,7 +132,7 @@ d = json.load(open('/tmp/summary.json'))
 s = d['data']
 print(f'  month: {s[\"month\"]}')
 print(f'  doneCount: {s[\"doneCount\"]} (expected 3 — 2 admin + 1 op)')
-print(f'  avgTotalMinutes: {s[\"avgTotalMinutes\"]} (should be ~4 min with 1s delays)')
+print(f'  avgTotalMinutes: {s[\"avgTotalMinutes\"]} (should be ~0.5 min with 7s delays)')
 print(f'  avgStepMinutes:')
 for k, v in s['avgStepMinutes'].items():
     print(f'    {k}: {v}')
@@ -227,12 +229,12 @@ python3 -c "
 import json
 d = json.load(open('/tmp/summary.json'))
 s = d['data']
-# With 1-second delays between transitions, each step should be ~0.017 min (1s/60s)
-# But we round to 1 decimal place, so 0.0 is acceptable. Just verify they're not None.
-print(f'  avgTotalMinutes: {s[\"avgTotalMinutes\"]} (expected > 0 — 4 transitions × ~1s = ~4s = ~0.067 min)')
-# Verify total time is reasonable (should be at least 4 seconds = 0.067 min)
-# With rounding to 1 decimal, it might be 0.1
-assert s['avgTotalMinutes'] is not None and s['avgTotalMinutes'] >= 0, f'avgTotalMinutes invalid: {s[\"avgTotalMinutes\"]}'
+# With 7-second delays between transitions, each step should be ~0.117 min (7s/60s)
+# Rounded to 1 decimal place, that's ~0.1 min per step.
+print(f'  avgTotalMinutes: {s[\"avgTotalMinutes\"]} (expected > 0 — 4 transitions × ~7s = ~28s = ~0.47 min)')
+# Verify total time is reasonable (should be at least 28 seconds = 0.47 min)
+# With rounding to 1 decimal, it should be ~0.5
+assert s['avgTotalMinutes'] is not None and s['avgTotalMinutes'] > 0, f'avgTotalMinutes invalid: {s[\"avgTotalMinutes\"]}'
 print('  ✓ Step times are non-null and reasonable')
 "
 

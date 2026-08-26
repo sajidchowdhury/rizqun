@@ -31,7 +31,7 @@ CJ=/tmp/rizqun-cookies.txt
 rm -f $CJ /tmp/r.json
 
 pp() { python3 -m json.tool 2>/dev/null || cat; }
-PSQL=/home/z/.local/pg-extract/client/usr/lib/postgresql/17/bin/psql
+PSQL=psql
 
 echo ""
 echo "═════════════════════════════════════════════════════════"
