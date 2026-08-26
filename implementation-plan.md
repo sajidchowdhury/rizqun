@@ -892,7 +892,7 @@ cancelled    → (terminal)
 | 11. Deployment | 11.1, 11.2, 11.3, 11.4 | ☐ |
 
 **Total: 38 sessions across 12 phases.**
-**Completed: 23 / 38 sessions**
+**Completed: 24 / 38 sessions**
 
 ### Session Log
 
@@ -921,5 +921,6 @@ cancelled    → (terminal)
 | 6.2 — Remove Item from Pending Order | `73704aa` | `DELETE /orders/:id/items/:itemId` — editable-status check, cross-order item protection (404 if item not in order), last-item protection (409), totals recompute + audit log; 16-test smoke script |
 | 6.3 — Audit Log for Edits | `02ed537` | `GET /orders/:id/audit-log` — append-only status_log entries (oldest-first) with denormalized `changedByName`; verifies `added_item`/`removed_item`/transition notes; 14-test smoke script with SQL query patterns |
 | 7.1 — Done List Endpoint | `2942928` | `GET /orders/done` — only `delivered` orders, sorted by `deliveredAt` DESC, `?month=YYYY-MM` filter, search by name/phone, role-scoped; 13-test smoke script |
+| 7.2 — Dashboard Summary Endpoint | `1c7edcb` | `GET /dashboard/summary?month=YYYY-MM` — `doneCount`, `avgTotalMinutes`, `avgStepMinutes` per transition via LAG window function on `status_log`; role-scoped; 7-test smoke script |
 
 After each session, paste the session's Confirmation Checkpoint back to the owner. Only after explicit "✅ confirmed" do we start the next session.
