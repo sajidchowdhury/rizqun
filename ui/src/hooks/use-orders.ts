@@ -8,6 +8,7 @@ import type {
   FinalizeOrderPayload,
   PublicOrder,
   PaginatedPendingOrders,
+  PaginatedDoneOrders,
   OrderVendorGroups,
   AuditLog,
   OrderStatus,
@@ -191,5 +192,29 @@ export function usePendingOrders(query: PendingOrdersQuery = {}) {
       )) as PaginatedPendingOrders;
     },
     refetchInterval: 30_000,
+  });
+}
+
+// ─── Done list (GET /orders/done) ──────────────────────────────
+
+export interface DoneOrdersQuery {
+  page?: number;
+  limit?: number;
+  month?: string;
+  search?: string;
+}
+
+export function useDoneOrders(query: DoneOrdersQuery = {}) {
+  return useQuery({
+    queryKey: ['orders', 'done', query] as const,
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (query.page) params.set('page', String(query.page));
+      if (query.limit) params.set('limit', String(query.limit));
+      if (query.month) params.set('month', query.month);
+      if (query.search) params.set('search', query.search);
+      const qs = params.toString() ? `?${params.toString()}` : '';
+      return (await api.get<PaginatedDoneOrders>(`/orders/done${qs}`)) as PaginatedDoneOrders;
+    },
   });
 }

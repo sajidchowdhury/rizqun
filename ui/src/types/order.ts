@@ -118,3 +118,28 @@ export interface AuditLogEntry {
 export interface AuditLog {
   entries: AuditLogEntry[];
 }
+
+// ─── Done list (GET /orders/done) ──────────────────────────────
+
+export interface DoneOrderListItem {
+  id: number;
+  orderCode: string;
+  userId: number;
+  customerName: string;
+  customerPhone: string;
+  status: string;
+  total: string;
+  itemsCount: number;
+  createdAt: string;
+  deliveredAt: string | null;
+}
+
+export interface PaginatedDoneOrders {
+  data: DoneOrderListItem[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+}

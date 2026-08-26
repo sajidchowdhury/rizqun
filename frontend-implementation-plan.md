@@ -1823,8 +1823,8 @@ Phase 4 — Order Operations
   ✓ 4.5  Cancel order + audit log
 
 Phase 5 — Done List & History
-  ☐ 5.1  Done list with month filter + search
-  ☐ 5.2  Order history detail + re-print vendor groups
+  ✓ 5.1  Done list with month filter + search
+  ✓ 5.2  Order history detail + re-print vendor groups
 
 Phase 6 — Dashboard
   ☐ 6.1  Dashboard layout + summary cards
