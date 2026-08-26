@@ -892,7 +892,7 @@ cancelled    → (terminal)
 | 11. Deployment | 11.1, 11.2, 11.3, 11.4 | 🔄 next |
 
 **Total: 38 sessions across 12 phases.**
-**Completed: 34 / 38 sessions**
+**Completed: 35 / 38 sessions**
 
 ### Session Log
 
@@ -932,5 +932,6 @@ cancelled    → (terminal)
 | 10.3 — Logging & Observability | `dc4b46a` | pino + pino-http replacing morgan, structured JSON logs (dev: pretty, prod: raw JSON), request/error/status-transition logging, /health excluded; 9-test smoke script |
 | 11.1 — Production Build & PM2 | `9ec3afc` | `npm run build` → dist/ (21 files), `npm start` → production mode, `ecosystem.config.js` for PM2 (fork, autorestart, log files), graceful shutdown verified; 6-test smoke script |
 | 11.2 — Nginx Reverse Proxy + TLS | `95eb5ae` | `deploy/nginx/rizqun.conf` (HTTP→HTTPS, TLS 1.2/1.3, HSTS, 9 route proxies, SPA fallback, gzip, static caching), `deploy/nginx/README.md` deployment guide (certbot, auto-renewal, troubleshooting); 14-test smoke script |
+| 11.3 — Database Backups | `475a7d5` | `deploy/backups/backup.sh` (pg_dump→gzip, 30-day retention, optional offsite via rclone/aws-cli) + `restore.sh` (drop+recreate+verify) + `README.md` guide; 6-test smoke script with restore verification |
 
 After each session, paste the session's Confirmation Checkpoint back to the owner. Only after explicit "✅ confirmed" do we start the next session.
