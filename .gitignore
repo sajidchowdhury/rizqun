@@ -22,7 +22,8 @@ yarn-error.log*
 pnpm-debug.log*
 
 # ─── Editor / OS ──────────────────────────────────────
-.vscode/
+# Scope to repo root only so the ui/ subproject can commit its own .vscode/
+/.vscode/
 .idea/
 .DS_Store
 Thumbs.db
