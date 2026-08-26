@@ -884,15 +884,15 @@ cancelled    → (terminal)
 | 3. Orders | 3.1, 3.2, 3.3 | ✅ |
 | 4. Status | 4.1, 4.2, 4.3 | ✅ |
 | 5. WhatsApp | 5.1, 5.2 | ✅ |
-| 6. Edit Pending | 6.1, 6.2, 6.3 | 🔄 next |
-| 7. Done & Dashboard | 7.1, 7.2, 7.3 | ☐ |
+| 6. Edit Pending | 6.1, 6.2, 6.3 | ✅ |
+| 7. Done & Dashboard | 7.1, 7.2, 7.3 | 🔄 next |
 | 8. Rating | 8.1, 8.2 | ☐ |
 | 9. Super Admin | 9.1, 9.2 | ☐ |
 | 10. Hardening | 10.1, 10.2, 10.3 | ☐ |
 | 11. Deployment | 11.1, 11.2, 11.3, 11.4 | ☐ |
 
 **Total: 38 sessions across 12 phases.**
-**Completed: 21 / 38 sessions**
+**Completed: 22 / 38 sessions**
 
 ### Session Log
 
@@ -919,5 +919,6 @@ cancelled    → (terminal)
 | 5.2 — Update Customer Info | `c966d1d` | `PATCH /orders/:id` — partial update (name/phone/address/deliveryFee), editable-status check, total recompute on deliveryFee change, route ordering before `/:id/status`; 19-test smoke script |
 | 6.1 — Add Item to Pending Order | `5a58a13` | `POST /orders/:id/items` — `addedAfterFinalize=true` flag, editable-status check, category-access enforced, atomic transaction with totals recompute + status_log audit; 16-test smoke script |
 | 6.2 — Remove Item from Pending Order | `73704aa` | `DELETE /orders/:id/items/:itemId` — editable-status check, cross-order item protection (404 if item not in order), last-item protection (409), totals recompute + audit log; 16-test smoke script |
+| 6.3 — Audit Log for Edits | `02ed537` | `GET /orders/:id/audit-log` — append-only status_log entries (oldest-first) with denormalized `changedByName`; verifies `added_item`/`removed_item`/transition notes; 14-test smoke script with SQL query patterns |
 
 After each session, paste the session's Confirmation Checkpoint back to the owner. Only after explicit "✅ confirmed" do we start the next session.
