@@ -887,12 +887,12 @@ cancelled    → (terminal)
 | 6. Edit Pending | 6.1, 6.2, 6.3 | ✅ |
 | 7. Done & Dashboard | 7.1, 7.2, 7.3 | ✅ |
 | 8. Rating | 8.1, 8.2 | ✅ |
-| 9. Super Admin | 9.1, 9.2 | 🔄 next |
-| 10. Hardening | 10.1, 10.2, 10.3 | ☐ |
+| 9. Super Admin | 9.1, 9.2 | ✅ |
+| 10. Hardening | 10.1, 10.2, 10.3 | 🔄 next |
 | 11. Deployment | 11.1, 11.2, 11.3, 11.4 | ☐ |
 
 **Total: 38 sessions across 12 phases.**
-**Completed: 28 / 38 sessions**
+**Completed: 29 / 38 sessions**
 
 ### Session Log
 
@@ -926,5 +926,6 @@ cancelled    → (terminal)
 | 8.1 — Generate Rating Link | `937fdfe` | `POST /orders/:id/rating-link` — 32-char hex token (128-bit entropy), idempotent, delivered-only check, 409 if already rated; 11-test smoke script |
 | 8.2 — Public Rating Form + Submit | `ccbdee0` | `GET /orders/rating-form/:token` (public, minimal data) + `POST /ratings` (public, rate-limited 5/hr, token consumed on submit); 11-test smoke script |
 | 9.1 — User CRUD | `40929ed` | `GET/POST/PATCH/DELETE /users` — super_admin only, bcrypt password, categoryAccess validation, self-protection (can't self-deactivate/demote/delete), soft-delete; 24-test smoke script |
+| 9.2 — Category Management | `d83692f` | `GET/POST/PATCH/DELETE /categories` — slug regex validation, physical delete (blocked if products exist), read for any authed; 18-test smoke script |
 
 After each session, paste the session's Confirmation Checkpoint back to the owner. Only after explicit "✅ confirmed" do we start the next session.
