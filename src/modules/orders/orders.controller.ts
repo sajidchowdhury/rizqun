@@ -6,6 +6,7 @@ import {
   listPendingOrdersQuerySchema,
   cancelOrderSchema,
   updateOrderSchema,
+  addOrderItemSchema,
 } from './orders.dto';
 import {
   finalizeOrder,
@@ -16,6 +17,7 @@ import {
   cancelOrder,
   getOrderVendorGroups,
   updateOrder,
+  addOrderItem,
 } from './orders.service';
 import { sendSuccess } from '../../utils/response';
 import { AppError } from '../../utils/AppError';
@@ -192,4 +194,34 @@ export async function update(req: Request, res: Response): Promise<void> {
 
   const order = await updateOrder(id, parsed.data, { userId, role });
   sendSuccess(res, { order }, 'Order updated');
+}
+
+// ─── POST /orders/:id/items (add item to pending order) ──────
+// Customer calls back → operator adds a new item mid-flight.
+// Only works while order is editable (pending, waiting_vendor, preparing).
+// The new item is marked addedAfterFinalize=true (powers *NEW* badge).
+export async function addItem(req: Request, res: Response): Promise<void> {
+  const id = Number(req.params.id);
+  if (Number.isNaN(id) || id <= 0) {
+    throw new AppError(400, 'Invalid order id');
+  }
+
+  const parsed = addOrderItemSchema.safeParse(req.body);
+  if (!parsed.success) {
+    throw new AppError(400, parsed.error.issues[0]?.message ?? 'Invalid input');
+  }
+
+  const userId = req.user?.userId;
+  const role = req.user?.role;
+  if (!userId || !role) {
+    throw new AppError(401, 'Not authenticated');
+  }
+  const userCategoryAccess = req.user?.categoryAccess ?? [];
+
+  const order = await addOrderItem(id, parsed.data, {
+    userId,
+    role,
+    userCategoryAccess,
+  });
+  sendSuccess(res, { order }, 'Item added to order', 201);
 }

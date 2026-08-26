@@ -275,3 +275,19 @@ export const updateOrderSchema = z
   });
 
 export type UpdateOrderInput = z.infer<typeof updateOrderSchema>;
+
+// ─── Add item to pending order (POST /orders/:id/items) ───────
+//
+// Customer calls back after the order was finalized but BEFORE pickup →
+// operator can add an item. The new item is marked `addedAfterFinalize=true`
+// so it shows up with a *NEW* badge in the WhatsApp copy text.
+//
+// Editable window: status IN (pending, waiting_vendor, preparing)
+// Once picked_up → 409 "Order is locked"
+
+export const addOrderItemSchema = z.object({
+  productId: z.number().int().positive('productId must be a positive integer'),
+  qty: z.number().int().positive('qty must be at least 1').max(9999),
+});
+
+export type AddOrderItemInput = z.infer<typeof addOrderItemSchema>;

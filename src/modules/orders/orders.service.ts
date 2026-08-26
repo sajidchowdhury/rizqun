@@ -19,6 +19,7 @@ import type {
   OrderVendorGroups,
   VendorGroup,
   UpdateOrderInput,
+  AddOrderItemInput,
 } from './orders.dto';
 
 // ─── Helpers ───────────────────────────────────────────────────
@@ -834,6 +835,156 @@ export async function updateOrder(
         orderBy: { id: 'asc' },
       },
     },
+  });
+
+  return toPublicOrder(updated);
+}
+
+// ─── Add item to pending order (POST /orders/:id/items) ───────
+//
+// Customer calls back → operator adds a new item mid-flight.
+// The new item is marked `addedAfterFinalize=true` (powers the *NEW* badge
+// in the WhatsApp copy text).
+//
+// Validation:
+//   1. Order must exist (404 if not)
+//   2. Scope check (404 for non-own, no leak)
+//   3. Order must be in EDITABLE_STATUSES (409 "Order is locked" otherwise)
+//   4. Product must exist + be active
+//   5. Product's category must be in user's categoryAccess
+//   6. Product's vendor must be active
+//
+// Atomic transaction:
+//   1. Insert new OrderItem with addedAfterFinalize=true
+//   2. Recompute subtotal = sum of all order_items.line_total
+//   3. Update order.subtotal + order.total (= subtotal + deliveryFee)
+//   4. Insert status_log row with note='added_item:<productId>'
+
+interface AddItemContext {
+  userId: number;
+  role: string;
+  userCategoryAccess: string[];
+}
+
+export async function addOrderItem(
+  orderId: number,
+  input: AddOrderItemInput,
+  ctx: AddItemContext,
+): Promise<PublicOrder> {
+  const order = await prisma.order.findUnique({
+    where: { id: orderId },
+    include: {
+      items: {
+        include: {
+          vendor: {
+            select: { id: true, name: true, phone: true, whatsappNumber: true },
+          },
+        },
+        orderBy: { id: 'asc' },
+      },
+    },
+  });
+
+  if (!order) {
+    throw new AppError(404, 'Order not found');
+  }
+
+  if (ctx.role !== 'super_admin' && order.userId !== ctx.userId) {
+    throw new AppError(404, 'Order not found');
+  }
+
+  if (!EDITABLE_STATUSES.includes(order.status)) {
+    throw new AppError(
+      409,
+      `Cannot add items to order in status '${order.status}'. Order is locked once it reaches 'picked_up'.`,
+    );
+  }
+
+  const product = await prisma.product.findUnique({
+    where: { id: input.productId },
+    include: {
+      category: { select: { slug: true } },
+      vendor: {
+        select: { id: true, name: true, phone: true, whatsappNumber: true, isActive: true },
+      },
+    },
+  });
+
+  if (!product) {
+    throw new AppError(400, `Product with id ${input.productId} does not exist`);
+  }
+
+  if (!product.isActive) {
+    throw new AppError(400, `Product "${product.name}" is no longer active`);
+  }
+
+  if (!product.vendor?.isActive) {
+    throw new AppError(400, `Vendor for "${product.name}" is deactivated`);
+  }
+
+  const hasAll = ctx.userCategoryAccess.includes('all');
+  if (!hasAll && !ctx.userCategoryAccess.includes(product.category.slug)) {
+    throw new AppError(
+      403,
+      `You do not have access to the '${product.category.slug}' category (product: ${product.name})`,
+    );
+  }
+
+  const lineTotal = product.price.mul(input.qty);
+
+  const updated = await prisma.$transaction(async (tx) => {
+    await tx.orderItem.create({
+      data: {
+        orderId: order.id,
+        productId: product.id,
+        vendorId: product.vendorId,
+        productNameSnapshot: product.name,
+        priceSnapshot: product.price,
+        qty: input.qty,
+        lineTotal,
+        addedAfterFinalize: true,
+      },
+    });
+
+    const allItems = await tx.orderItem.findMany({
+      where: { orderId: order.id },
+      select: { lineTotal: true },
+    });
+    const newSubtotal = allItems.reduce(
+      (sum, item) => sum.plus(item.lineTotal),
+      new Prisma.Decimal(0),
+    );
+    const newTotal = newSubtotal.plus(order.deliveryFee);
+
+    const updatedOrder = await tx.order.update({
+      where: { id: order.id },
+      data: {
+        subtotal: newSubtotal,
+        total: newTotal,
+      },
+      include: {
+        items: {
+          include: {
+            vendor: {
+              select: { id: true, name: true, phone: true, whatsappNumber: true },
+            },
+          },
+          orderBy: { id: 'asc' },
+        },
+      },
+    });
+
+    await tx.statusLog.create({
+      data: {
+        orderId: order.id,
+        fromStatus: order.status as OrderStatus,
+        toStatus: order.status as OrderStatus,
+        changedBy: ctx.userId,
+        note: `added_item:${product.id} (qty=${input.qty})`,
+      },
+    });
+
+    return updatedOrder;
   });
 
   return toPublicOrder(updated);
