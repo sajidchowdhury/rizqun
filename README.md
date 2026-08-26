@@ -159,6 +159,10 @@ unset DATABASE_URL && npx tsx scripts/db-smoke-test.ts
 | POST | `/orders/:id/rating-link` | any authed (scoped) | Generate unique rating URL for delivered order (32-char hex token, idempotent) |
 | GET | `/orders/rating-form/:token` | **public** | Rating form data — returns `orderCode` + `customerName` only (no sensitive data) |
 | POST | `/ratings` | **public** (rate-limited) | Submit rating (1-5 scores + comment) — token consumed on submit (single-use) |
+| GET | `/users?page=&limit=&role=&isActive=&search=` | `super_admin` | List all users (paginated, filterable) |
+| POST | `/users` | `super_admin` | Create a user (validates categoryAccess against existing categories) |
+| PATCH | `/users/:id` | `super_admin` | Update a user (name/email/phone/password/role/categoryAccess/isActive) |
+| DELETE | `/users/:id` | `super_admin` | Soft-delete a user (`isActive=false`) — can't self-delete |
 
 ### Middlewares (in `src/middlewares/`)
 
