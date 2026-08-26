@@ -289,6 +289,16 @@ phase:
 - Smart search: cmd+K opens dialog, typing "rice" returns Rice Basmati 5kg
 - Operator (grocery.op): "New product" button hidden, can only view + toggle (Switch hidden too — operator sees read-only Active/Inactive badge instead)
 
+#### Bug fix between Phase 2 and Phase 3 — `5effecd`
+
+User reported the UI looked broken: only the brand row was visible in the sidebar, no nav items, no breadcrumb, no search bar. Root cause: Tailwind v4's `.inset-y-0` generates `inset-block: 0` (CSS logical property) instead of `top: 0; bottom: 0;` (physical properties, as Tailwind v3 did). Chrome computes `top: 0` and `bottom: 0` correctly from `inset-block: 0` BUT does not auto-stretch a `position: fixed` element to fill the viewport when only the logical `inset-block` is set — the element's height collapses to its content height (just the brand row at h-14 = 56px), pushing the nav + user footer below the visible area. Fix: added explicit `h-screen` (100vh) class to the `<aside>` element. This was a pre-existing bug since Phase 0.3 — smoke tests missed it because `agent-browser`'s snapshot inspects the accessibility tree (which lists all DOM elements regardless of CSS visibility).
+
+#### Phase 3 — Order Building (1/5 done, 1 commit)
+
+| Session | Commit | Notes |
+|---------|--------|-------|
+| 3.1 | (this commit) | `zustand` installed. Cart store in `src/contexts/cart-store.ts` uses the `persist` middleware with `sessionStorage` (cleared on tab close, not `localStorage`) — matches the auth token behavior so a cart refresh works but a cart never survives a tab close. Store shape: `items: CartItem[]`, `customer: CustomerInfo`, `deliveryFee: number` + 9 actions (addItem with auto-merge on duplicate productId, removeItem, setQty with auto-remove at 0, incrementQty/decrementQty, setCustomer with partial-merge, setDeliveryFee clamped to >= 0, clearItems preserves customer + deliveryFee, clearAll resets everything). Computed selectors exported as plain functions: `computeSubtotal`, `computeItemCount`, `computeTotals`, plus `formatBDT` helper using `Intl.NumberFormat('en-BD', { currency: 'BDT' })`. `useCart` hook wraps the store + memoizes the computed totals so consumers can `const { items, totals, addItem } = useCart()` without re-rendering on every keystroke. CartItem snapshots the product at the time of adding (name, price, vendor info, category info, unit) so the cart stays correct even if the product is later renamed or repriced. Temporary `_cart-smoke-test.tsx` page verified all 11 scenarios end-to-end via headless Chrome: empty state, add 3 products, increment/decrement/remove, customer info update, delivery fee update, refresh persistence, clearItems preserves customer, clearAll resets everything. |
+
 ---
 
 ## Phase 0 — Project Bootstrap
@@ -1797,7 +1807,7 @@ Phase 2 — Catalog Management
   ✓ 2.5  Smart search box (debounced)
 
 Phase 3 — Order Building
-  ☐ 3.1  Cart state (zustand)
+  ✓ 3.1  Cart state (zustand)
   ☐ 3.2  Product picker modal
   ☐ 3.3  Quick-add custom product
   ☐ 3.4  Customer info + finalize order
