@@ -892,7 +892,7 @@ cancelled    → (terminal)
 | 11. Deployment | 11.1, 11.2, 11.3, 11.4 | ☐ |
 
 **Total: 38 sessions across 12 phases.**
-**Completed: 20 / 38 sessions**
+**Completed: 21 / 38 sessions**
 
 ### Session Log
 
@@ -918,5 +918,6 @@ cancelled    → (terminal)
 | 5.1 — Vendor-wise WhatsApp Logic | `b8e8cc9` | `GET /orders/:id/vendor-groups` — items grouped by vendor, `copyText` (paste-ready multi-line) + `whatsappUrl` (wa.me deep link), `*NEW*` badge for added_after_finalize items; 12-test smoke script |
 | 5.2 — Update Customer Info | `c966d1d` | `PATCH /orders/:id` — partial update (name/phone/address/deliveryFee), editable-status check, total recompute on deliveryFee change, route ordering before `/:id/status`; 19-test smoke script |
 | 6.1 — Add Item to Pending Order | `5a58a13` | `POST /orders/:id/items` — `addedAfterFinalize=true` flag, editable-status check, category-access enforced, atomic transaction with totals recompute + status_log audit; 16-test smoke script |
+| 6.2 — Remove Item from Pending Order | `73704aa` | `DELETE /orders/:id/items/:itemId` — editable-status check, cross-order item protection (404 if item not in order), last-item protection (409), totals recompute + audit log; 16-test smoke script |
 
 After each session, paste the session's Confirmation Checkpoint back to the owner. Only after explicit "✅ confirmed" do we start the next session.
