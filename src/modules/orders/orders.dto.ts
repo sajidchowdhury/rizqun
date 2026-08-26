@@ -203,3 +203,49 @@ export const cancelOrderSchema = z
   .default({});
 
 export type CancelOrderInput = z.infer<typeof cancelOrderSchema>;
+
+// ─── Vendor groups (GET /orders/:id/vendor-groups) ────────────
+// Returns the order's items grouped by vendor, each with a pre-formatted
+// multi-line `copyText` (paste-ready for WhatsApp) and a `whatsappUrl`
+// (opens WhatsApp Web/app with text pre-filled).
+//
+// Used by the operator workflow:
+//   1. Open order modal → see items grouped by vendor
+//   2. Click "Copy" on a vendor block → `copyText` goes to clipboard
+//   3. Click "WhatsApp" on a vendor block → `whatsappUrl` opens WhatsApp
+//   4. Paste/click Send → vendor receives the itemized list
+//
+// Items marked `addedAfterFinalize=true` get a `*NEW*` prefix in the copyText
+// so vendors can identify which items were added after the original order.
+
+export interface VendorGroupItem {
+  id: number;
+  productNameSnapshot: string;
+  priceSnapshot: string;
+  qty: number;
+  unit: string;
+  lineTotal: string;
+  addedAfterFinalize: boolean;
+}
+
+export interface VendorGroup {
+  vendorId: number;
+  vendorName: string;
+  vendorPhone: string;
+  vendorWhatsappNumber: string | null;
+  items: VendorGroupItem[];
+  subtotal: string;
+  // Pre-formatted multi-line text — paste-ready for WhatsApp
+  copyText: string;
+  // https://wa.me/<number>?text=<urlencoded copyText>
+  // NULL if vendor has no whatsappNumber
+  whatsappUrl: string | null;
+}
+
+export interface OrderVendorGroups {
+  orderCode: string;
+  customerName: string;
+  customerPhone: string;
+  customerAddress: string | null;
+  groups: VendorGroup[];
+}

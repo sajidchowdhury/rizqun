@@ -1,5 +1,13 @@
 import { Router } from 'express';
-import { finalize, list, getOne, updateStatus, listPending, cancel } from './orders.controller';
+import {
+  finalize,
+  list,
+  getOne,
+  updateStatus,
+  listPending,
+  cancel,
+  getVendorGroups,
+} from './orders.controller';
 import { asyncHandler } from '../../utils/asyncHandler';
 import { authenticate } from '../../middlewares/auth.middleware';
 
@@ -20,6 +28,9 @@ router.get('/pending', asyncHandler(listPending));
 
 // PATCH /orders/:id/status — update status
 router.patch('/:id/status', asyncHandler(updateStatus));
+
+// GET /orders/:id/vendor-groups — items grouped by vendor + copy text + wa.me URL
+router.get('/:id/vendor-groups', asyncHandler(getVendorGroups));
 
 // DELETE /orders/:id — cancel (soft-delete) an order
 router.delete('/:id', asyncHandler(cancel));

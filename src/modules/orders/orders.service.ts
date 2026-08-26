@@ -2,6 +2,7 @@ import { Prisma, type OrderStatus } from '@prisma/client';
 import { prisma } from '../../config/prisma';
 import { AppError } from '../../utils/AppError';
 import { generateUniqueOrderCode } from '../../utils/orderCode';
+import { buildVendorCopyText, buildWhatsappUrl } from '../../utils/whatsapp';
 import { isTransitionAllowed, EDITABLE_STATUSES } from './orders.dto';
 import type {
   FinalizeOrderInput,
@@ -15,6 +16,8 @@ import type {
   PaginatedPendingOrders,
   PendingOrderListItem,
   CancelOrderInput,
+  OrderVendorGroups,
+  VendorGroup,
 } from './orders.dto';
 
 // ─── Helpers ───────────────────────────────────────────────────
@@ -618,5 +621,142 @@ export async function cancelOrder(
     id: order.id,
     status: 'cancelled',
     orderCode: order.orderCode,
+  };
+}
+
+// ─── Get order vendor groups ──────────────────────────────────
+//
+// Returns the order's items grouped by vendor, with each group containing
+// a pre-formatted `copyText` and `whatsappUrl`.
+//
+// Used by the operator's "Send to vendor" workflow:
+//   - For each vendor block in the modal: a Copy button + a WhatsApp button
+//   - Copy → puts `copyText` in clipboard (operator pastes into WhatsApp manually)
+//   - WhatsApp → opens `whatsappUrl` in a new tab (text pre-filled, click Send)
+//
+// Grouping is done in the application layer (not SQL) because:
+//   1. We need to compute subtotal per vendor (sum of lineTotal)
+//   2. We need to build the copyText string per vendor (with *NEW* markers)
+//   3. The group order is stable (by vendorId ascending) so the UI doesn't jump
+
+export async function getOrderVendorGroups(
+  orderId: number,
+  ctx: ListContext,
+): Promise<OrderVendorGroups> {
+  const order = await prisma.order.findUnique({
+    where: { id: orderId },
+    include: {
+      items: {
+        include: {
+          vendor: {
+            select: {
+              id: true,
+              name: true,
+              phone: true,
+              whatsappNumber: true,
+            },
+          },
+        },
+        // Oldest first — preserves the order in which the operator added items
+        orderBy: { id: 'asc' },
+      },
+    },
+  });
+
+  if (!order) {
+    throw new AppError(404, 'Order not found');
+  }
+
+  // Scope check — non-super_admin users can only access their own orders
+  if (ctx.role !== 'super_admin' && order.userId !== ctx.userId) {
+    throw new AppError(404, 'Order not found');
+  }
+
+  // ─── Group items by vendor ─────────────────────────────────
+  // Use a Map to preserve insertion order (first-seen vendorId → first group).
+  // We also sort by vendorId ascending at the end for deterministic ordering
+  // in case items were added out of order via mid-pending edits.
+
+  const groupMap = new Map<number, VendorGroup>();
+
+  for (const item of order.items) {
+    const v = item.vendor;
+    let group = groupMap.get(v.id);
+
+    if (!group) {
+      group = {
+        vendorId: v.id,
+        vendorName: v.name,
+        vendorPhone: v.phone,
+        vendorWhatsappNumber: v.whatsappNumber,
+        items: [],
+        subtotal: '0',
+        copyText: '',
+        whatsappUrl: null,
+      };
+      groupMap.set(v.id, group);
+    }
+
+    group.items.push({
+      id: item.id,
+      productNameSnapshot: item.productNameSnapshot,
+      priceSnapshot: item.priceSnapshot.toString(),
+      qty: item.qty,
+      unit: '', // unit is on the Product, not on OrderItem — would need a join
+      lineTotal: item.lineTotal.toString(),
+      addedAfterFinalize: item.addedAfterFinalize,
+    });
+  }
+
+  // ─── Compute subtotal + copyText + whatsappUrl per group ──
+  const groups: VendorGroup[] = [];
+
+  // Sort by vendorId for stable ordering
+  const sortedVendorIds = Array.from(groupMap.keys()).sort((a, b) => a - b);
+
+  for (const vendorId of sortedVendorIds) {
+    const group = groupMap.get(vendorId);
+    if (!group) continue; // unreachable — we built this map above
+
+    // Compute subtotal = sum of lineTotal
+    const subtotal = group.items.reduce(
+      (sum, item) => sum.plus(new Prisma.Decimal(item.lineTotal)),
+      new Prisma.Decimal(0),
+    );
+    group.subtotal = subtotal.toString();
+
+    // Build copyText
+    group.copyText = buildVendorCopyText({
+      orderCode: order.orderCode,
+      vendorName: group.vendorName,
+      vendorPhone: group.vendorPhone,
+      customerName: order.customerName,
+      customerPhone: order.customerPhone,
+      customerAddress: order.customerAddress,
+      items: order.items
+        .filter((i) => i.vendorId === vendorId)
+        .map((i) => ({
+          productNameSnapshot: i.productNameSnapshot,
+          qty: i.qty,
+          unit: null, // not stored on OrderItem
+          priceSnapshot: i.priceSnapshot,
+          lineTotal: i.lineTotal,
+          addedAfterFinalize: i.addedAfterFinalize,
+        })),
+      subtotal,
+    });
+
+    // Build whatsappUrl
+    group.whatsappUrl = buildWhatsappUrl(group.vendorWhatsappNumber, group.copyText);
+
+    groups.push(group);
+  }
+
+  return {
+    orderCode: order.orderCode,
+    customerName: order.customerName,
+    customerPhone: order.customerPhone,
+    customerAddress: order.customerAddress,
+    groups,
   };
 }
