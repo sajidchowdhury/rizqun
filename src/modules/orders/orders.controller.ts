@@ -18,6 +18,7 @@ import {
   getOrderVendorGroups,
   updateOrder,
   addOrderItem,
+  removeOrderItem,
 } from './orders.service';
 import { sendSuccess } from '../../utils/response';
 import { AppError } from '../../utils/AppError';
@@ -224,4 +225,28 @@ export async function addItem(req: Request, res: Response): Promise<void> {
     userCategoryAccess,
   });
   sendSuccess(res, { order }, 'Item added to order', 201);
+}
+
+// ─── DELETE /orders/:id/items/:itemId (remove item from pending order) ──
+// Customer calls back → operator removes an item mid-flight.
+// Only works while order is editable (pending, waiting_vendor, preparing).
+// Recomputes subtotal + total atomically; can't remove the last item.
+export async function removeItem(req: Request, res: Response): Promise<void> {
+  const orderId = Number(req.params.id);
+  const itemId = Number(req.params.itemId);
+  if (Number.isNaN(orderId) || orderId <= 0) {
+    throw new AppError(400, 'Invalid order id');
+  }
+  if (Number.isNaN(itemId) || itemId <= 0) {
+    throw new AppError(400, 'Invalid item id');
+  }
+
+  const userId = req.user?.userId;
+  const role = req.user?.role;
+  if (!userId || !role) {
+    throw new AppError(401, 'Not authenticated');
+  }
+
+  const order = await removeOrderItem(orderId, itemId, { userId, role });
+  sendSuccess(res, { order }, 'Item removed from order');
 }

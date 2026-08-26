@@ -989,3 +989,118 @@ export async function addOrderItem(
 
   return toPublicOrder(updated);
 }
+
+// ─── Remove item from pending order (DELETE /orders/:id/items/:itemId) ──
+//
+// Customer calls back → operator removes an item mid-flight.
+// Atomic transaction:
+//   1. Delete the OrderItem row
+//   2. Recompute subtotal = sum of remaining order_items.line_total
+//   3. Update order.subtotal + order.total (= subtotal + deliveryFee)
+//   4. Insert status_log row with note='removed_item:<itemId>'
+//
+// Same editable-status check as addOrderItem (409 if locked).
+// Returns 404 if the item doesn't belong to the specified order (defensive —
+// prevents accidentally removing an item from a different order via ID guessing).
+
+export async function removeOrderItem(
+  orderId: number,
+  itemId: number,
+  ctx: ListContext,
+): Promise<PublicOrder> {
+  // ─── 1. Fetch the order ────────────────────────────────────
+  const order = await prisma.order.findUnique({
+    where: { id: orderId },
+    include: {
+      items: {
+        include: {
+          vendor: {
+            select: { id: true, name: true, phone: true, whatsappNumber: true },
+          },
+        },
+        orderBy: { id: 'asc' },
+      },
+    },
+  });
+
+  if (!order) {
+    throw new AppError(404, 'Order not found');
+  }
+
+  // ─── 2. Scope check ────────────────────────────────────────
+  if (ctx.role !== 'super_admin' && order.userId !== ctx.userId) {
+    throw new AppError(404, 'Order not found');
+  }
+
+  // ─── 3. Editable check ──────────────────────────────────────
+  if (!EDITABLE_STATUSES.includes(order.status)) {
+    throw new AppError(
+      409,
+      `Cannot remove items from order in status '${order.status}'. Order is locked once it reaches 'picked_up'.`,
+    );
+  }
+
+  // ─── 4. Verify the item belongs to this order ──────────────
+  // Defensive — prevents ID-guessing attacks across orders
+  const item = order.items.find((i) => i.id === itemId);
+  if (!item) {
+    throw new AppError(404, 'Item not found in this order');
+  }
+
+  // ─── 5. Block removal of the last item ─────────────────────
+  // An order with 0 items makes no sense — operators should cancel instead.
+  if (order.items.length === 1) {
+    throw new AppError(409, 'Cannot remove the last item from an order. Cancel the order instead.');
+  }
+
+  // ─── 6. Transaction: delete item + recompute totals + audit ─
+  const updated = await prisma.$transaction(async (tx) => {
+    // 1. Delete the order item
+    await tx.orderItem.delete({ where: { id: itemId } });
+
+    // 2. Recompute subtotal from remaining items
+    const remainingItems = await tx.orderItem.findMany({
+      where: { orderId: order.id },
+      select: { lineTotal: true },
+    });
+    const newSubtotal = remainingItems.reduce(
+      (sum, i) => sum.plus(i.lineTotal),
+      new Prisma.Decimal(0),
+    );
+    const newTotal = newSubtotal.plus(order.deliveryFee);
+
+    // 3. Update the order's totals
+    const updatedOrder = await tx.order.update({
+      where: { id: order.id },
+      data: {
+        subtotal: newSubtotal,
+        total: newTotal,
+      },
+      include: {
+        items: {
+          include: {
+            vendor: {
+              select: { id: true, name: true, phone: true, whatsappNumber: true },
+            },
+          },
+          orderBy: { id: 'asc' },
+        },
+      },
+    });
+
+    // 4. Insert audit log row
+    await tx.statusLog.create({
+      data: {
+        orderId: order.id,
+        fromStatus: order.status as OrderStatus,
+        toStatus: order.status as OrderStatus, // status unchanged
+        changedBy: ctx.userId,
+        note: `removed_item:${itemId} (was: ${item.productNameSnapshot} qty=${item.qty})`,
+      },
+    });
+
+    return updatedOrder;
+  });
+
+  return toPublicOrder(updated);
+}

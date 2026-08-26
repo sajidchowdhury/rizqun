@@ -9,6 +9,7 @@ import {
   getVendorGroups,
   update,
   addItem,
+  removeItem,
 } from './orders.controller';
 import { asyncHandler } from '../../utils/asyncHandler';
 import { authenticate } from '../../middlewares/auth.middleware';
@@ -36,6 +37,9 @@ router.patch('/:id', asyncHandler(update));
 
 // POST /orders/:id/items — add item to pending order (addedAfterFinalize=true)
 router.post('/:id/items', asyncHandler(addItem));
+
+// DELETE /orders/:id/items/:itemId — remove item from pending order
+router.delete('/:id/items/:itemId', asyncHandler(removeItem));
 
 // GET /orders/:id/vendor-groups — items grouped by vendor + copy text + wa.me URL
 router.get('/:id/vendor-groups', asyncHandler(getVendorGroups));

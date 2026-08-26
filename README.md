@@ -148,6 +148,7 @@ unset DATABASE_URL && npx tsx scripts/db-smoke-test.ts
 | PATCH | `/orders/:id/status` | any authed (scoped) | Update status — validates transition matrix, appends status_log row, sets deliveredAt |
 | GET | `/orders/:id/vendor-groups` | any authed (scoped) | Items grouped by vendor — includes `copyText` (paste-ready for WhatsApp) + `whatsappUrl` (wa.me deep link) |
 | POST | `/orders/:id/items` | any authed (scoped) | Add item to pending order (sets `addedAfterFinalize=true`, recomputes totals, audit log) |
+| DELETE | `/orders/:id/items/:itemId` | any authed (scoped) | Remove item from pending order (recomputes totals, audit log; can't remove last item) |
 | DELETE | `/orders/:id` | any authed (scoped) | Cancel (soft-delete) — only from pending/waiting_vendor/preparing; preserves audit trail |
 
 ### Middlewares (in `src/middlewares/`)
