@@ -888,11 +888,11 @@ cancelled    → (terminal)
 | 7. Done & Dashboard | 7.1, 7.2, 7.3 | ✅ |
 | 8. Rating | 8.1, 8.2 | ✅ |
 | 9. Super Admin | 9.1, 9.2 | ✅ |
-| 10. Hardening | 10.1, 10.2, 10.3 | 🔄 next |
-| 11. Deployment | 11.1, 11.2, 11.3, 11.4 | ☐ |
+| 10. Hardening | 10.1, 10.2, 10.3 | ✅ |
+| 11. Deployment | 11.1, 11.2, 11.3, 11.4 | 🔄 next |
 
 **Total: 38 sessions across 12 phases.**
-**Completed: 31 / 38 sessions**
+**Completed: 32 / 38 sessions**
 
 ### Session Log
 
@@ -929,5 +929,6 @@ cancelled    → (terminal)
 | 9.2 — Category Management | `d83692f` | `GET/POST/PATCH/DELETE /categories` — slug regex validation, physical delete (blocked if products exist), read for any authed; 18-test smoke script |
 | 10.1 — Rate Limiting & Brute-Force Protection | `a587d04` | `loginLimiter` (5/15min), `generalApiLimiter` (100/min, skips /health), helmet + CORS verified; 6-test smoke script |
 | 10.2 — Input Validation & Sanitization | `e588078` | `z.strictObject()` on all body schemas (reject unknown fields), verified email normalization, phone validation, whitespace trimming, numeric bounds, string length, enum validation; 8-category smoke script |
+| 10.3 — Logging & Observability | `dc4b46a` | pino + pino-http replacing morgan, structured JSON logs (dev: pretty, prod: raw JSON), request/error/status-transition logging, /health excluded; 9-test smoke script |
 
 After each session, paste the session's Confirmation Checkpoint back to the owner. Only after explicit "✅ confirmed" do we start the next session.
