@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Loader2, Minus, Package, Plus, Search } from 'lucide-react';
+import { Loader2, Minus, Package, Plus, Search, Sparkles } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -16,7 +16,8 @@ import { Separator } from '@/components/ui/separator';
 import { useProductSearch } from '@/hooks/use-products';
 import { useCart } from '@/hooks/use-cart';
 import { formatBDT } from '@/contexts/cart-store';
-import type { ProductSearchResult } from '@/types/product';
+import type { ProductSearchResult, Product } from '@/types/product';
+import { QuickAddProduct } from './quick-add-product';
 
 interface ProductPickerProps {
   open: boolean;
@@ -30,6 +31,10 @@ export function ProductPicker({ open, onOpenChange }: ProductPickerProps) {
   const [recentlyAdded, setRecentlyAdded] = useState<
     Array<{ name: string; qty: number; price: string }>
   >([]);
+  // When the user clicks "Quick-add" after a 0-results search, we
+  // expand the inline QuickAddProduct form. The search query is passed
+  // as the default name to save re-typing.
+  const [quickAddOpen, setQuickAddOpen] = useState(false);
 
   const { data: results, isFetching } = useProductSearch(query, open);
   const { addItem } = useCart();
@@ -41,25 +46,25 @@ export function ProductPicker({ open, onOpenChange }: ProductPickerProps) {
       setQuery('');
       setSelected(null);
       setQty(1);
+      setQuickAddOpen(false);
     }
     onOpenChange(next);
   }
 
   // When the user types, clear the current selection (the previously
-  // selected product no longer matches the new search). The first result
-  // will be auto-selected when results arrive via the `results` render
-  // below (derived state, not effect).
+  // selected product no longer matches the new search). Also collapse
+  // the quick-add form if it was open (the user is searching again).
   function handleQueryChange(value: string) {
     setQuery(value);
     setSelected(null);
+    setQuickAddOpen(false);
   }
 
   // If we have results but no selection yet, derive the "would-be" selected
   // product. We render the qty stepper + totals using this derived value
   // so the operator gets a default to confirm with Enter. We do NOT call
-  // setSelected here (that would be setState-in-render, but only合法 if
-  // it's the same value — React will warn). Instead we use the derived
-  // value directly in the UI.
+  // setSelected here (that would be setState-in-render). Instead we use
+  // the derived value directly in the UI.
   const effectiveSelected = selected ?? results?.data?.[0] ?? null;
 
   function selectProduct(product: ProductSearchResult) {
@@ -96,13 +101,26 @@ export function ProductPicker({ open, onOpenChange }: ProductPickerProps) {
     }
   }
 
+  function handleQuickAddSuccess(product: Product) {
+    // Add to recently-added chips with qty=1 (the QuickAddProduct form
+    // already added to cart).
+    setRecentlyAdded((prev) => [
+      { name: product.name, qty: 1, price: product.price },
+      ...prev.slice(0, 4),
+    ]);
+    // Close the picker — the operator can re-open it to search for the
+    // product they just created (it's now in the catalog).
+    handleOpenChange(false);
+  }
+
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Add product to cart</DialogTitle>
           <DialogDescription>
-            Search the catalog. Select a product, set the quantity, then add to cart.
+            Search the catalog. Select a product, set the quantity, then add to cart. If the product
+            isn't in the catalog, quick-add it.
           </DialogDescription>
         </DialogHeader>
 
@@ -131,7 +149,20 @@ export function ProductPicker({ open, onOpenChange }: ProductPickerProps) {
             </div>
           )}
           {!isFetching && query.length >= 2 && (results?.data.length ?? 0) === 0 && (
-            <div className="py-6 text-center text-sm text-muted-foreground">No products found.</div>
+            <div className="py-6 text-center">
+              <p className="text-sm text-muted-foreground">No products found.</p>
+              {!quickAddOpen && (
+                <Button
+                  variant="link"
+                  size="sm"
+                  className="mt-2 h-auto"
+                  onClick={() => setQuickAddOpen(true)}
+                >
+                  <Sparkles className="size-3.5" />
+                  Not in catalog? Quick-add it
+                </Button>
+              )}
+            </div>
           )}
           {!isFetching &&
             (results?.data.length ?? 0) > 0 &&
@@ -163,8 +194,23 @@ export function ProductPicker({ open, onOpenChange }: ProductPickerProps) {
             })}
         </div>
 
-        {/* Selected product + qty stepper */}
-        {effectiveSelected && (
+        {/* Quick-add form (shown when the user clicks "Quick-add it") */}
+        {quickAddOpen && (
+          <>
+            <Separator />
+            <div className="rounded-md border border-dashed bg-muted/30 p-3">
+              <p className="mb-3 text-sm font-medium">Quick-add a custom product</p>
+              <QuickAddProduct
+                defaultName={query}
+                onSuccess={handleQuickAddSuccess}
+                onCancel={() => setQuickAddOpen(false)}
+              />
+            </div>
+          </>
+        )}
+
+        {/* Selected product + qty stepper (hidden when quick-add form is open) */}
+        {!quickAddOpen && effectiveSelected && (
           <>
             <Separator />
             <div className="space-y-3">
@@ -218,8 +264,8 @@ export function ProductPicker({ open, onOpenChange }: ProductPickerProps) {
           </>
         )}
 
-        {/* Recently added chips */}
-        {recentlyAdded.length > 0 && (
+        {/* Recently added chips (hidden when quick-add form is open) */}
+        {!quickAddOpen && recentlyAdded.length > 0 && (
           <>
             <Separator />
             <div className="space-y-2">
@@ -235,21 +281,25 @@ export function ProductPicker({ open, onOpenChange }: ProductPickerProps) {
           </>
         )}
 
-        <DialogFooter>
-          <Button variant="outline" onClick={() => handleOpenChange(false)}>
-            Done
-          </Button>
-          <Button
-            variant="secondary"
-            onClick={() => handleAddToCart(false)}
-            disabled={!effectiveSelected}
-          >
-            Add another
-          </Button>
-          <Button onClick={() => handleAddToCart(true)} disabled={!effectiveSelected}>
-            Add to cart
-          </Button>
-        </DialogFooter>
+        {/* Footer buttons (hidden when quick-add form is open — the
+            form has its own Create & add to cart button) */}
+        {!quickAddOpen && (
+          <DialogFooter>
+            <Button variant="outline" onClick={() => handleOpenChange(false)}>
+              Done
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => handleAddToCart(false)}
+              disabled={!effectiveSelected}
+            >
+              Add another
+            </Button>
+            <Button onClick={() => handleAddToCart(true)} disabled={!effectiveSelected}>
+              Add to cart
+            </Button>
+          </DialogFooter>
+        )}
       </DialogContent>
     </Dialog>
   );

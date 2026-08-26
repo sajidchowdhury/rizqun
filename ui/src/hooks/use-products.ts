@@ -9,7 +9,7 @@ import type {
   ProductResponse,
   ProductSearchResponse,
 } from '@/types/product';
-import type { CreateProductForm, UpdateProductForm } from '@/schemas/product';
+import type { CreateProductForm, UpdateProductForm, QuickAddProductForm } from '@/schemas/product';
 
 // ─── List ─────────────────────────────────────────────────────────
 
@@ -98,6 +98,33 @@ export function useToggleProduct() {
     onSuccess: (product: Product) => {
       queryClient.invalidateQueries({ queryKey: ['products'] });
       toast.success(`Product "${product.name}" ${product.isActive ? 'activated' : 'deactivated'}`);
+    },
+    onError: (error) => toast.apiError(error),
+  });
+}
+
+// ─── Quick-add (operator-side, in-call product creation) ────────
+//
+// Creates a real product in the catalog (active, available for future
+// orders) AND returns it so the caller can immediately add it to the
+// cart. The backend validates user's categoryAccess (403 if not allowed
+// for non-admins), auto-generates a SKU if not provided.
+
+export function useQuickAddProduct() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: QuickAddProductForm) => {
+      const data = (await api.post<ProductResponse>(
+        '/products/quick-add',
+        input,
+      )) as ProductResponse;
+      return data.product;
+    },
+    onSuccess: (product) => {
+      // Invalidate products + search caches so the new product shows up
+      // in subsequent searches + the products list.
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+      toast.success(`Product "${product.name}" created and added to catalog`);
     },
     onError: (error) => toast.apiError(error),
   });
