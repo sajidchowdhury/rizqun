@@ -4,6 +4,7 @@ import { asyncHandler } from '../../utils/asyncHandler';
 import { authenticate } from '../../middlewares/auth.middleware';
 import { requireRole } from '../../middlewares/role.middleware';
 import { categoryScope } from '../../middlewares/category-scope.middleware';
+import { loginLimiter } from '../../middlewares/rate-limiters';
 
 const router = Router();
 
@@ -11,7 +12,8 @@ const router = Router();
 // Login + refresh don't need auth (obviously).
 // Logout is intentionally public so a client can clear its cookie even if its
 // token has already expired.
-router.post('/login', asyncHandler(login));
+// Login is rate-limited to prevent brute-force attacks.
+router.post('/login', loginLimiter, asyncHandler(login));
 router.post('/refresh', asyncHandler(refresh));
 router.post('/logout', asyncHandler(logout));
 

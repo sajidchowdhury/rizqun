@@ -6,6 +6,7 @@ import cookieParser from 'cookie-parser';
 import { env } from './config/env';
 import { prisma } from './config/prisma';
 import { AppError } from './utils/AppError';
+import { generalApiLimiter } from './middlewares/rate-limiters';
 import authRoutes from './modules/auth/auth.routes';
 import vendorRoutes from './modules/vendors/vendors.routes';
 import productRoutes from './modules/products/products.routes';
@@ -38,6 +39,12 @@ app.use(cookieParser());
 
 // ─── Logging ──────────────────────────────────────────────────
 app.use(morgan(env.nodeEnv === 'production' ? 'combined' : 'dev'));
+
+// ─── General API rate limiter ─────────────────────────────────
+// 100 requests per minute per IP. Skips /health so monitoring
+// tools don't false-alarm. Applied before routes so it catches
+// everything except health checks.
+app.use(generalApiLimiter);
 
 // ─── Routes ─────────────────────────────────────────────────────
 app.use('/auth', authRoutes);

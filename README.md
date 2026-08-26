@@ -252,6 +252,13 @@ This project uses:
 - **ESLint 9** (flat config in `eslint.config.mjs`) with `typescript-eslint` recommended rules
 - **Prettier 3** (config in `.prettierrc.json`) — single quotes, semicolons, trailing commas
 - **EditorConfig** (`.editorconfig`) — UTF-8, LF, 2-space indent
+- **Helmet** — security headers (X-Content-Type-Options, COOP, CORP, CSP)
+- **CORS** — allowlist-based (configured in `src/app.ts` via `env.corsOrigins`)
+- **Rate limiting** (via `express-rate-limit`):
+  - Login: 5 attempts / 15 min per IP (prevents brute-force)
+  - General API: 100 requests / min per IP (prevents abuse/DoS)
+  - Rating submit: 5 requests / hour per IP (already in Session 8.2)
+  - `/health` is exempt from all rate limiting
 
 Key rules:
 
