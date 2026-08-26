@@ -245,6 +245,50 @@ ORDER BY rank DESC
 LIMIT 20;
 ```
 
+## Production deployment
+
+### Build
+
+```bash
+npm run build        # compiles TypeScript → dist/
+npm start            # runs dist/server.js in production mode
+```
+
+### PM2 process management
+
+```bash
+# Install PM2 globally
+npm install -g pm2
+
+# Start the app in production mode
+pm2 start ecosystem.config.js --env production
+
+# Save the process list (enables auto-restart on reboot)
+pm2 save
+pm2 startup    # follow the instructions it prints
+
+# View logs
+pm2 logs rizqun-api
+
+# Restart / stop / delete
+pm2 restart rizqun-api
+pm2 stop rizqun-api
+pm2 delete rizqun-api
+```
+
+### Log rotation (install once)
+
+```bash
+pm2 install pm2-logrotate
+pm2 set pm2-logrotate:max_size 10M
+pm2 set pm2-logrotate:retain 30
+pm2 set pm2-logrotate:compress true
+```
+
+### Environment variables
+
+All secrets are loaded from `.env` (never committed). See `.env.example` for the full list. In production, set these via your VPS environment or a `.env` file with restricted permissions (`chmod 600 .env`).
+
 ## Code quality
 
 This project uses:

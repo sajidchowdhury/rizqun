@@ -67,6 +67,19 @@ export default tseslint.config(
     },
   },
 
+  // ─── JS config files (ecosystem.config.js etc.) ──────────────
+  {
+    files: ['*.js'],
+    languageOptions: {
+      globals: {
+        module: 'readonly',
+        require: 'readonly',
+        process: 'readonly',
+        __dirname: 'readonly',
+      },
+    },
+  },
+
   // ─── Turn OFF formatting rules that conflict with Prettier ───
   prettier,
 );
