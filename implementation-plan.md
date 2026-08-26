@@ -882,8 +882,8 @@ cancelled    → (terminal)
 | 1. Auth | 1.1, 1.2, 1.3 | ✅ |
 | 2. Catalog | 2.1, 2.2, 2.3, 2.4, 2.5 | ✅ |
 | 3. Orders | 3.1, 3.2, 3.3 | ✅ |
-| 4. Status | 4.1, 4.2, 4.3 | 🔄 next |
-| 5. WhatsApp | 5.1, 5.2 | ☐ |
+| 4. Status | 4.1, 4.2, 4.3 | ✅ |
+| 5. WhatsApp | 5.1, 5.2 | 🔄 next |
 | 6. Edit Pending | 6.1, 6.2, 6.3 | ☐ |
 | 7. Done & Dashboard | 7.1, 7.2, 7.3 | ☐ |
 | 8. Rating | 8.1, 8.2 | ☐ |
@@ -892,7 +892,7 @@ cancelled    → (terminal)
 | 11. Deployment | 11.1, 11.2, 11.3, 11.4 | ☐ |
 
 **Total: 38 sessions across 12 phases.**
-**Completed: 16 / 38 sessions**
+**Completed: 17 / 38 sessions**
 
 ### Session Log
 
@@ -914,5 +914,6 @@ cancelled    → (terminal)
 | 3.3 — Get Order + List Orders | `719d5d6` | `GET /orders` (paginated, filtered, scoped by role) + `GET /orders/:id` (full detail, 404-not-own-leak); 13-test smoke script |
 | 4.1 — Status Update + Status Log | `c9b5a58` | `PATCH /orders/:id/status` with ALLOWED_TRANSITIONS matrix, audit trail, deliveredAt; idempotent same-status, 404-not-own-leak; 13-test smoke script |
 | 4.2 — Pending List Endpoint | `7a82679` | `GET /orders/pending` — only in-flight statuses, oldest-first sort, `minutesSinceCreated` field, role-scoped; 12-test smoke script |
+| 4.3 — Cancel Order (Soft Delete) | `0023194` | `DELETE /orders/:id` — cancel only from editable statuses, audit log with note, 409 on locked/already-cancelled, soft-delete preserves all rows; 13-test smoke script |
 
 After each session, paste the session's Confirmation Checkpoint back to the owner. Only after explicit "✅ confirmed" do we start the next session.
