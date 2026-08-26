@@ -12,27 +12,39 @@
 #   7. Update status through the full lifecycle
 #   8. Generate + submit a rating
 #   9. Verify in done list
-
-cd /home/z/my-project/rizqun
+cd "$(dirname "$0")/.."
 unset DATABASE_URL
 
-pkill -f "tsx src/server" 2>/dev/null
-sleep 1
-
 echo "Starting server..."
+
 npx tsx src/server.ts > /tmp/rizqun-e2e.log 2>&1 &
 SRV_PID=$!
-trap "kill $SRV_PID 2>/dev/null; wait 2>/dev/null" EXIT
 
-for i in 1 2 3 4 5 6 7 8 9 10; do
+echo "Waiting for API..."
+
+SERVER_UP=0
+
+for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
   sleep 1
-  if curl -s -o /dev/null --max-time 2 http://localhost:3000/health; then
+
+  if curl.exe -sS --max-time 2 http://127.0.0.1:3000/health > /dev/null 2>&1; then
     echo "Server up (PID $SRV_PID)"
+    SERVER_UP=1
     break
   fi
 done
 
-if ! curl -s -o /dev/null --max-time 2 http://localhost:3000/health; then
+if [ "$SERVER_UP" -ne 1 ]; then
+  echo "FAILED to start server"
+  echo ""
+  echo "Server log:"
+  cat /tmp/rizqun-e2e.log
+  exit 1
+fi
+
+trap "kill $SRV_PID 2>/dev/null" EXIT
+
+if ! curl.exe -sS -o NUL --max-time 2 http://127.0.0.1:3000/health; then
   echo "FAILED to start server"
   cat /tmp/rizqun-e2e.log
   exit 1
@@ -41,7 +53,7 @@ fi
 CJ=/tmp/rizqun-e2e-cookies.txt
 rm -f $CJ /tmp/r.json /tmp/e2e-result.json
 
-PSQL=/home/z/.local/pg-extract/client/usr/lib/postgresql/17/bin/psql
+PSQL=psql
 
 echo ""
 echo "═════════════════════════════════════════════════════════"
@@ -57,7 +69,7 @@ check() { if [ "$1" = "$2" ]; then echo "   ✓ PASS: $3"; PASS=$((PASS+1)); els
 # ─── STEP 1: Login as admin ───────────────────────────────────
 echo ""
 echo "── Step 1: Login as admin ───────────────────────────────"
-LOGIN=$(curl -sS --max-time 5 -X POST http://localhost:3000/auth/login \
+LOGIN=$(curl.exe -sS --max-time 5 -X POST http://localhost:3000/auth/login \
   -H 'Content-Type: application/json' \
   -d '{"email":"admin@rizqun.com","password":"ChangeMeInProduction123!"}')
 TOKEN=$(echo "$LOGIN" | python3 -c "import sys,json; print(json.load(sys.stdin)['data']['accessToken'])" 2>/dev/null)
@@ -66,7 +78,7 @@ if [ -n "$TOKEN" ]; then echo "   ✓ Login successful"; PASS=$((PASS+1)); else 
 # ─── STEP 2: Search for a product ─────────────────────────────
 echo ""
 echo "── Step 2: Search for 'Paracetamol' ────────────────────"
-SEARCH=$(curl -sS --max-time 5 "http://localhost:3000/products/search?q=paracetamol" \
+SEARCH=$(curl.exe -sS --max-time 5 "http://localhost:3000/products/search?q=paracetamol" \
   -H "Authorization: Bearer $TOKEN")
 SEARCH_COUNT=$(echo "$SEARCH" | python3 -c "import sys,json; print(len(json.load(sys.stdin)['data']['data']))" 2>/dev/null)
 echo "   Found $SEARCH_COUNT product(s)"
@@ -75,7 +87,7 @@ check "$SEARCH_COUNT" "1" "Search returns Paracetamol"
 # ─── STEP 3: Search for 'Rice' ────────────────────────────────
 echo ""
 echo "── Step 3: Search for 'Rice' ──────────────────────────"
-SEARCH2=$(curl -sS --max-time 5 "http://localhost:3000/products/search?q=rice" \
+SEARCH2=$(curl.exe -sS --max-time 5 "http://localhost:3000/products/search?q=rice" \
   -H "Authorization: Bearer $TOKEN")
 RICE_COUNT=$(echo "$SEARCH2" | python3 -c "import sys,json; print(len(json.load(sys.stdin)['data']['data']))" 2>/dev/null)
 echo "   Found $RICE_COUNT product(s)"
@@ -88,7 +100,7 @@ PARA_ID=$(echo "$SEARCH" | python3 -c "import sys,json; d=json.load(sys.stdin); 
 # ─── STEP 4: Finalize order ───────────────────────────────────
 echo ""
 echo "── Step 4: Finalize order ──────────────────────────────"
-ORDER=$(curl -sS --max-time 5 -X POST http://localhost:3000/orders \
+ORDER=$(curl.exe -sS --max-time 5 -X POST http://localhost:3000/orders \
   -H "Authorization: Bearer $TOKEN" \
   -H 'Content-Type: application/json' \
   -d "{
@@ -110,7 +122,7 @@ if [ -n "$ORDER_ID" ]; then echo "   ✓ PASS: Order created"; PASS=$((PASS+1));
 # ─── STEP 5: View in pending list ─────────────────────────────
 echo ""
 echo "── Step 5: View in pending list ────────────────────────"
-PENDING=$(curl -sS --max-time 5 "http://localhost:3000/orders/pending" \
+PENDING=$(curl.exe -sS --max-time 5 "http://localhost:3000/orders/pending" \
   -H "Authorization: Bearer $TOKEN")
 IN_PENDING=$(echo "$PENDING" | python3 -c "
 import sys,json
@@ -123,7 +135,7 @@ check "$IN_PENDING" "1" "Order appears in pending list"
 # ─── STEP 6: View vendor groups (WhatsApp) ─────────────────────
 echo ""
 echo "── Step 6: View vendor groups ──────────────────────────"
-VG=$(curl -sS --max-time 5 "http://localhost:3000/orders/$ORDER_ID/vendor-groups" \
+VG=$(curl.exe -sS --max-time 5 "http://localhost:3000/orders/$ORDER_ID/vendor-groups" \
   -H "Authorization: Bearer $TOKEN")
 VG_COUNT=$(echo "$VG" | python3 -c "import sys,json; print(len(json.load(sys.stdin)['data']['groups']))" 2>/dev/null)
 echo "   Vendor groups: $VG_COUNT"
@@ -143,7 +155,7 @@ echo ""
 echo "── Step 7: Status lifecycle ─────────────────────────────"
 ALL_OK=true
 for s in waiting_vendor preparing picked_up delivered; do
-  RESULT=$(curl -sS --max-time 5 -o /dev/null -w "%{http_code}" -X PATCH "http://localhost:3000/orders/$ORDER_ID/status" \
+  RESULT=$(curl.exe -sS --max-time 5 -o /dev/null -w "%{http_code}" -X PATCH "http://localhost:3000/orders/$ORDER_ID/status" \
     -H "Authorization: Bearer $TOKEN" \
     -H 'Content-Type: application/json' \
     -d "{\"status\":\"$s\",\"note\":\"E2E: transition to $s\"}")
@@ -157,7 +169,7 @@ done
 if [ "$ALL_OK" = true ]; then PASS=$((PASS+1)); echo "   ✓ PASS: Full lifecycle"; else FAIL=$((FAIL+1)); fi
 
 # Verify deliveredAt is set
-DELIVERED_AT=$(curl -sS --max-time 5 "http://localhost:3000/orders/$ORDER_ID" \
+DELIVERED_AT=$(curl.exe -sS --max-time 5 "http://localhost:3000/orders/$ORDER_ID" \
   -H "Authorization: Bearer $TOKEN" \
   | python3 -c "import sys,json; print(json.load(sys.stdin)['data']['order']['deliveredAt'])" 2>/dev/null)
 if [ "$DELIVERED_AT" != "None" ] && [ -n "$DELIVERED_AT" ]; then
@@ -171,18 +183,18 @@ fi
 # ─── STEP 8: Generate + submit rating ─────────────────────────
 echo ""
 echo "── Step 8: Rating link + submit ────────────────────────"
-RATING_LINK=$(curl -sS --max-time 5 -X POST "http://localhost:3000/orders/$ORDER_ID/rating-link" \
+RATING_LINK=$(curl.exe -sS --max-time 5 -X POST "http://localhost:3000/orders/$ORDER_ID/rating-link" \
   -H "Authorization: Bearer $TOKEN")
 RATING_TOKEN=$(echo "$RATING_LINK" | python3 -c "import sys,json; print(json.load(sys.stdin)['data']['ratingToken'])" 2>/dev/null)
 if [ -n "$RATING_TOKEN" ]; then echo "   ✓ Rating link generated"; PASS=$((PASS+1)); else echo "   ✗ FAIL: rating link"; FAIL=$((FAIL+1)); fi
 
 # Get form data
-FORM=$(curl -sS --max-time 5 "http://localhost:3000/orders/rating-form/$RATING_TOKEN")
+FORM=$(curl.exe -sS --max-time 5 "http://localhost:3000/orders/rating-form/$RATING_TOKEN")
 FORM_CODE=$(echo "$FORM" | python3 -c "import sys,json; print(json.load(sys.stdin)['data']['orderCode'])" 2>/dev/null)
 check "$FORM_CODE" "$ORDER_CODE" "Rating form returns correct order code"
 
 # Submit rating
-RATING_RESULT=$(curl -sS --max-time 5 -X POST http://localhost:3000/ratings \
+RATING_RESULT=$(curl.exe -sS --max-time 5 -X POST http://localhost:3000/ratings \
   -H 'Content-Type: application/json' \
   -d "{\"token\":\"$RATING_TOKEN\",\"overall\":5,\"speed\":4,\"behavior\":5,\"comment\":\"Excellent E2E test service!\"}")
 RATING_OK=$(echo "$RATING_RESULT" | python3 -c "import sys,json; print(json.load(sys.stdin)['success'])" 2>/dev/null)
@@ -191,7 +203,7 @@ check "$RATING_OK" "True" "Rating submitted"
 # ─── STEP 9: Verify in done list ───────────────────────────────
 echo ""
 echo "── Step 9: Verify in done list ─────────────────────────"
-DONE=$(curl -sS --max-time 5 "http://localhost:3000/orders/done" \
+DONE=$(curl.exe -sS --max-time 5 "http://localhost:3000/orders/done" \
   -H "Authorization: Bearer $TOKEN")
 IN_DONE=$(echo "$DONE" | python3 -c "
 import sys,json
@@ -204,7 +216,7 @@ check "$IN_DONE" "1" "Order appears in done list"
 # ─── STEP 10: Verify audit log ─────────────────────────────────
 echo ""
 echo "── Step 10: Audit log ──────────────────────────────────"
-AUDIT=$(curl -sS --max-time 5 "http://localhost:3000/orders/$ORDER_ID/audit-log" \
+AUDIT=$(curl.exe -sS --max-time 5 "http://localhost:3000/orders/$ORDER_ID/audit-log" \
   -H "Authorization: Bearer $TOKEN")
 AUDIT_COUNT=$(echo "$AUDIT" | python3 -c "import sys,json; print(len(json.load(sys.stdin)['data']['entries']))" 2>/dev/null)
 echo "   Audit log entries: $AUDIT_COUNT (expected 5: created + 4 transitions)"
