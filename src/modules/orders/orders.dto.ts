@@ -102,3 +102,48 @@ export interface PaginatedOrders {
     totalPages: number;
   };
 }
+
+// ─── Status update (PATCH /orders/:id/status) ─────────────────
+//
+// Allowed transitions (forward = vendor workflow, sideways = cancel):
+//
+//   pending        → waiting_vendor, cancelled
+//   waiting_vendor → preparing, cancelled
+//   preparing      → picked_up, cancelled
+//   picked_up      → delivered
+//   delivered      → (terminal)
+//   cancelled      → (terminal)
+//
+// Note: once an order is `picked_up`, customer can NO LONGER add/remove items
+// (enforced in Session 6).
+
+export const ALLOWED_TRANSITIONS: Record<string, string[]> = {
+  pending: ['waiting_vendor', 'cancelled'],
+  waiting_vendor: ['preparing', 'cancelled'],
+  preparing: ['picked_up', 'cancelled'],
+  picked_up: ['delivered'],
+  delivered: [], // terminal
+  cancelled: [], // terminal
+};
+
+export function isTransitionAllowed(fromStatus: string, toStatus: string): boolean {
+  const allowed = ALLOWED_TRANSITIONS[fromStatus];
+  if (!allowed) return false;
+  return allowed.includes(toStatus);
+}
+
+// Statuses after which the order is "locked" — no more item edits allowed.
+// Anything strictly before `picked_up` (i.e. pending, waiting_vendor, preparing)
+// is still editable.
+export const EDITABLE_STATUSES = ['pending', 'waiting_vendor', 'preparing'];
+export function isOrderEditable(status: string): boolean {
+  return EDITABLE_STATUSES.includes(status);
+}
+
+export const updateOrderStatusSchema = z.object({
+  status: z.enum(['pending', 'waiting_vendor', 'preparing', 'picked_up', 'delivered', 'cancelled']),
+  // Optional note for the audit log (e.g. 'Vendor confirmed', 'Customer cancelled')
+  note: z.string().trim().max(500).optional(),
+});
+
+export type UpdateOrderStatusInput = z.infer<typeof updateOrderStatusSchema>;

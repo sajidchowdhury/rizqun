@@ -1,6 +1,6 @@
 import type { Request, Response } from 'express';
-import { finalizeOrderSchema, listOrdersQuerySchema } from './orders.dto';
-import { finalizeOrder, listOrders, getOrderById } from './orders.service';
+import { finalizeOrderSchema, listOrdersQuerySchema, updateOrderStatusSchema } from './orders.dto';
+import { finalizeOrder, listOrders, getOrderById, updateOrderStatus } from './orders.service';
 import { sendSuccess } from '../../utils/response';
 import { AppError } from '../../utils/AppError';
 
@@ -64,4 +64,28 @@ export async function getOne(req: Request, res: Response): Promise<void> {
 
   const order = await getOrderById(id, { userId, role });
   sendSuccess(res, { order }, 'Order retrieved');
+}
+
+// ─── PATCH /orders/:id/status ────────────────────────────────
+// Updates the order status with full audit trail (status_log append-only).
+// Validates transition is allowed per ALLOWED_TRANSITIONS matrix.
+export async function updateStatus(req: Request, res: Response): Promise<void> {
+  const id = Number(req.params.id);
+  if (Number.isNaN(id) || id <= 0) {
+    throw new AppError(400, 'Invalid order id');
+  }
+
+  const parsed = updateOrderStatusSchema.safeParse(req.body);
+  if (!parsed.success) {
+    throw new AppError(400, parsed.error.issues[0]?.message ?? 'Invalid input');
+  }
+
+  const userId = req.user?.userId;
+  const role = req.user?.role;
+  if (!userId || !role) {
+    throw new AppError(401, 'Not authenticated');
+  }
+
+  const order = await updateOrderStatus(id, parsed.data, { userId, role });
+  sendSuccess(res, { order }, 'Order status updated');
 }

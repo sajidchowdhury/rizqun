@@ -2,6 +2,7 @@ import { Prisma, type OrderStatus } from '@prisma/client';
 import { prisma } from '../../config/prisma';
 import { AppError } from '../../utils/AppError';
 import { generateUniqueOrderCode } from '../../utils/orderCode';
+import { isTransitionAllowed } from './orders.dto';
 import type {
   FinalizeOrderInput,
   PublicOrder,
@@ -9,6 +10,7 @@ import type {
   ListOrdersQuery,
   PaginatedOrders,
   OrderListItem,
+  UpdateOrderStatusInput,
 } from './orders.dto';
 
 // ─── Helpers ───────────────────────────────────────────────────
@@ -367,3 +369,105 @@ export async function getOrderById(id: number, ctx: ListContext): Promise<Public
 
   return toPublicOrder(order);
 }
+
+// ─── Update order status ──────────────────────────────────────
+//
+// Validates the transition is allowed, then atomically:
+//   1. Inserts a status_log row (append-only audit)
+//   2. Updates the order's status (and deliveredAt if becoming 'delivered')
+//
+// The transaction guarantees we never have a status_log row without a matching
+// order update (or vice versa).
+
+export async function updateOrderStatus(
+  orderId: number,
+  input: UpdateOrderStatusInput,
+  ctx: ListContext,
+): Promise<PublicOrder> {
+  // Fetch the current order first (outside the transaction — read-only)
+  const order = await prisma.order.findUnique({
+    where: { id: orderId },
+    include: {
+      items: {
+        include: {
+          vendor: {
+            select: { id: true, name: true, phone: true, whatsappNumber: true },
+          },
+        },
+        orderBy: { id: 'asc' },
+      },
+    },
+  });
+
+  if (!order) {
+    throw new AppError(404, 'Order not found');
+  }
+
+  // Scope check — non-super_admin users can only update their own orders
+  if (ctx.role !== 'super_admin' && order.userId !== ctx.userId) {
+    throw new AppError(404, 'Order not found');
+  }
+
+  const fromStatus = order.status;
+  const toStatus = input.status as OrderStatus;
+
+  // Idempotency: same status → no-op (but still returns the order)
+  if (fromStatus === toStatus) {
+    return toPublicOrder(order);
+  }
+
+  // Validate the transition
+  if (!isTransitionAllowed(fromStatus, toStatus)) {
+    throw new AppError(
+      409,
+      `Invalid status transition: ${fromStatus} → ${toStatus}. Allowed: ${
+        ALLOWED_TRANSITIONS_LABEL[fromStatus] ?? '(none — terminal state)'
+      }`,
+    );
+  }
+
+  // Single transaction: insert status_log + update order
+  const updated = await prisma.$transaction(async (tx) => {
+    // 1. Insert audit row
+    await tx.statusLog.create({
+      data: {
+        orderId: order.id,
+        fromStatus,
+        toStatus,
+        changedBy: ctx.userId,
+        note: input.note,
+      },
+    });
+
+    // 2. Update the order — set deliveredAt if transitioning to 'delivered'
+    return tx.order.update({
+      where: { id: order.id },
+      data: {
+        status: toStatus,
+        ...(toStatus === 'delivered' ? { deliveredAt: new Date() } : {}),
+      },
+      include: {
+        items: {
+          include: {
+            vendor: {
+              select: { id: true, name: true, phone: true, whatsappNumber: true },
+            },
+          },
+          orderBy: { id: 'asc' },
+        },
+      },
+    });
+  });
+
+  return toPublicOrder(updated);
+}
+
+// Human-readable labels for the error message
+const ALLOWED_TRANSITIONS_LABEL: Record<string, string> = {
+  pending: 'waiting_vendor, cancelled',
+  waiting_vendor: 'preparing, cancelled',
+  preparing: 'picked_up, cancelled',
+  picked_up: 'delivered',
+  delivered: '(none — terminal)',
+  cancelled: '(none — terminal)',
+};
