@@ -11,6 +11,7 @@ import {
   addItem,
   removeItem,
   getAuditLog,
+  listDone,
 } from './orders.controller';
 import { asyncHandler } from '../../utils/asyncHandler';
 import { authenticate } from '../../middlewares/auth.middleware';
@@ -26,9 +27,10 @@ router.post('/', asyncHandler(finalize));
 // GET /orders — paginated list scoped by role
 router.get('/', asyncHandler(list));
 
-// IMPORTANT: static sub-paths (/pending) must come BEFORE /:id so Express
-// doesn't treat "pending" as an order id.
+// IMPORTANT: static sub-paths (/pending, /done) must come BEFORE /:id so Express
+// doesn't treat them as an order id.
 router.get('/pending', asyncHandler(listPending));
+router.get('/done', asyncHandler(listDone));
 
 // PATCH /orders/:id/status — update status (more specific path declared first)
 router.patch('/:id/status', asyncHandler(updateStatus));

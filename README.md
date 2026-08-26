@@ -143,6 +143,7 @@ unset DATABASE_URL && npx tsx scripts/db-smoke-test.ts
 | POST | `/orders` | any authed (scoped) | Finalize cart — snapshots product name/price, computes totals, creates order + status_log |
 | GET | `/orders?page=&limit=&status=&from=&to=&search=` | any authed (scoped) | Paginated list (operators see own only, super_admin sees all) |
 | GET | `/orders/pending?page=&limit=&customer=` | any authed (scoped) | Pending list — only `pending`/`waiting_vendor`/`preparing`, sorted oldest-first, with `minutesSinceCreated` |
+| GET | `/orders/done?page=&limit=&month=&search=` | any authed (scoped) | Done list — only `delivered`, sorted by `deliveredAt` DESC, filterable by month |
 | GET | `/orders/:id` | any authed (scoped) | Full order detail with items + nested vendor info (404 if not own) |
 | PATCH | `/orders/:id` | any authed (scoped) | Update customer info / deliveryFee (only while editable; recomputes total) |
 | PATCH | `/orders/:id/status` | any authed (scoped) | Update status — validates transition matrix, appends status_log row, sets deliveredAt |

@@ -7,6 +7,7 @@ import {
   cancelOrderSchema,
   updateOrderSchema,
   addOrderItemSchema,
+  listDoneOrdersQuerySchema,
 } from './orders.dto';
 import {
   finalizeOrder,
@@ -20,6 +21,7 @@ import {
   addOrderItem,
   removeOrderItem,
   getOrderAuditLog,
+  listDoneOrders,
 } from './orders.service';
 import { sendSuccess } from '../../utils/response';
 import { AppError } from '../../utils/AppError';
@@ -269,4 +271,23 @@ export async function getAuditLog(req: Request, res: Response): Promise<void> {
 
   const result = await getOrderAuditLog(id, { userId, role });
   sendSuccess(res, result, 'Audit log retrieved');
+}
+
+// ─── GET /orders/done ────────────────────────────────────────
+// Archive view of delivered orders, sorted newest-delivery-first.
+// Optional month filter (?month=2026-08) and search (?search=Rahim).
+export async function listDone(req: Request, res: Response): Promise<void> {
+  const parsed = listDoneOrdersQuerySchema.safeParse(req.query);
+  if (!parsed.success) {
+    throw new AppError(400, parsed.error.issues[0]?.message ?? 'Invalid query');
+  }
+
+  const userId = req.user?.userId;
+  const role = req.user?.role;
+  if (!userId || !role) {
+    throw new AppError(401, 'Not authenticated');
+  }
+
+  const result = await listDoneOrders(parsed.data, { userId, role });
+  sendSuccess(res, result, 'Done orders retrieved');
 }

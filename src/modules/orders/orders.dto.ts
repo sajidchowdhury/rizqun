@@ -321,3 +321,48 @@ export interface OrderAuditLog {
   orderCode: string;
   entries: AuditLogEntry[];
 }
+
+// ─── Done list query (GET /orders/done) ───────────────────────
+// Returns only delivered orders, sorted by deliveredAt DESC (newest delivery first).
+// Optional month filter: ?month=2026-08 (ISO year-month).
+//
+// This is the "archive" view — operators use it to look up past deliveries
+// for customer follow-up or to send the rating link.
+
+export const listDoneOrdersQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+  // ISO year-month: '2026-08'. Filters by deliveredAt in that month.
+  month: z
+    .string()
+    .trim()
+    .regex(/^\d{4}-\d{2}$/, 'Month must be in YYYY-MM format (e.g. 2026-08)')
+    .optional(),
+  // Search by customer name or phone (same as listOrders)
+  search: z.string().trim().optional(),
+});
+
+export type ListDoneOrdersQuery = z.infer<typeof listDoneOrdersQuerySchema>;
+
+export interface DoneOrderListItem {
+  id: number;
+  orderCode: string;
+  userId: number;
+  customerName: string;
+  customerPhone: string;
+  status: string;
+  total: string;
+  itemsCount: number;
+  createdAt: Date;
+  deliveredAt: Date | null;
+}
+
+export interface PaginatedDoneOrders {
+  data: DoneOrderListItem[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+}

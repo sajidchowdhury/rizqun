@@ -22,6 +22,9 @@ import type {
   AddOrderItemInput,
   AuditLogEntry,
   OrderAuditLog,
+  ListDoneOrdersQuery,
+  PaginatedDoneOrders,
+  DoneOrderListItem,
 } from './orders.dto';
 
 // ─── Helpers ───────────────────────────────────────────────────
@@ -1156,5 +1159,92 @@ export async function getOrderAuditLog(orderId: number, ctx: ListContext): Promi
   return {
     orderCode: order.orderCode,
     entries,
+  };
+}
+
+// ─── Done list (GET /orders/done) ──────────────────────────────
+//
+// Returns only delivered orders, sorted by deliveredAt DESC (newest first).
+// Optional month filter: ?month=2026-08 → deliveredAt in [2026-08-01, 2026-09-01)
+// Optional search: matches customerName OR customerPhone.
+//
+// Same role-based scoping as listOrders (operators see own, super_admin sees all).
+
+export async function listDoneOrders(
+  query: ListDoneOrdersQuery,
+  ctx: ListContext,
+): Promise<PaginatedDoneOrders> {
+  const where: Prisma.OrderWhereInput = {
+    status: 'delivered',
+  };
+
+  // Scope by role
+  if (ctx.role !== 'super_admin') {
+    where.userId = ctx.userId;
+  }
+
+  // Month filter: parse 'YYYY-MM' → [start, end) range
+  if (query.month) {
+    const [yearStr, monthStr] = query.month.split('-');
+    const year = parseInt(yearStr, 10);
+    const month = parseInt(monthStr, 10);
+    const monthStart = new Date(Date.UTC(year, month - 1, 1));
+    const monthEnd = new Date(Date.UTC(year, month, 1)); // first day of next month
+    where.deliveredAt = {
+      gte: monthStart,
+      lt: monthEnd,
+    };
+  }
+
+  if (query.search) {
+    where.OR = [
+      { customerName: { contains: query.search, mode: 'insensitive' } },
+      { customerPhone: { contains: query.search } },
+    ];
+  }
+
+  const [rows, total] = await Promise.all([
+    prisma.order.findMany({
+      where,
+      orderBy: { deliveredAt: 'desc' },
+      skip: (query.page - 1) * query.limit,
+      take: query.limit,
+      select: {
+        id: true,
+        orderCode: true,
+        userId: true,
+        customerName: true,
+        customerPhone: true,
+        status: true,
+        total: true,
+        createdAt: true,
+        deliveredAt: true,
+        _count: { select: { items: true } },
+      },
+    }),
+    prisma.order.count({ where }),
+  ]);
+
+  const data: DoneOrderListItem[] = rows.map((r) => ({
+    id: r.id,
+    orderCode: r.orderCode,
+    userId: r.userId,
+    customerName: r.customerName,
+    customerPhone: r.customerPhone,
+    status: r.status,
+    total: r.total.toString(),
+    itemsCount: r._count.items,
+    createdAt: r.createdAt,
+    deliveredAt: r.deliveredAt,
+  }));
+
+  return {
+    data,
+    pagination: {
+      page: query.page,
+      limit: query.limit,
+      total,
+      totalPages: Math.ceil(total / query.limit),
+    },
   };
 }
