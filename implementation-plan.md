@@ -892,7 +892,7 @@ cancelled    → (terminal)
 | 11. Deployment | 11.1, 11.2, 11.3, 11.4 | ☐ |
 
 **Total: 38 sessions across 12 phases.**
-**Completed: 17 / 38 sessions**
+**Completed: 18 / 38 sessions**
 
 ### Session Log
 
@@ -915,5 +915,6 @@ cancelled    → (terminal)
 | 4.1 — Status Update + Status Log | `c9b5a58` | `PATCH /orders/:id/status` with ALLOWED_TRANSITIONS matrix, audit trail, deliveredAt; idempotent same-status, 404-not-own-leak; 13-test smoke script |
 | 4.2 — Pending List Endpoint | `7a82679` | `GET /orders/pending` — only in-flight statuses, oldest-first sort, `minutesSinceCreated` field, role-scoped; 12-test smoke script |
 | 4.3 — Cancel Order (Soft Delete) | `0023194` | `DELETE /orders/:id` — cancel only from editable statuses, audit log with note, 409 on locked/already-cancelled, soft-delete preserves all rows; 13-test smoke script |
+| 5.1 — Vendor-wise WhatsApp Logic | `b8e8cc9` | `GET /orders/:id/vendor-groups` — items grouped by vendor, `copyText` (paste-ready multi-line) + `whatsappUrl` (wa.me deep link), `*NEW*` badge for added_after_finalize items; 12-test smoke script |
 
 After each session, paste the session's Confirmation Checkpoint back to the owner. Only after explicit "✅ confirmed" do we start the next session.
