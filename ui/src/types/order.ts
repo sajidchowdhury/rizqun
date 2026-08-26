@@ -71,3 +71,50 @@ export interface PaginatedPendingOrders {
     totalPages: number;
   };
 }
+
+// ─── Vendor groups (GET /orders/:id/vendor-groups) ─────────────
+
+export interface VendorGroupItem {
+  id: number;
+  productNameSnapshot: string;
+  priceSnapshot: string;
+  qty: number;
+  unit: string;
+  lineTotal: string;
+  addedAfterFinalize: boolean;
+}
+
+export interface VendorGroup {
+  vendorId: number;
+  vendorName: string;
+  vendorPhone: string;
+  vendorWhatsappNumber: string | null;
+  items: VendorGroupItem[];
+  subtotal: string;
+  copyText: string;
+  whatsappUrl: string | null;
+}
+
+export interface OrderVendorGroups {
+  orderCode: string;
+  customerName: string;
+  customerPhone: string;
+  customerAddress: string | null;
+  groups: VendorGroup[];
+}
+
+// ─── Audit log (GET /orders/:id/audit-log) ─────────────────────
+
+export interface AuditLogEntry {
+  id: number;
+  fromStatus: string | null;
+  toStatus: string;
+  changedBy: number;
+  changedByName?: string;
+  note: string | null;
+  changedAt: string;
+}
+
+export interface AuditLog {
+  entries: AuditLogEntry[];
+}

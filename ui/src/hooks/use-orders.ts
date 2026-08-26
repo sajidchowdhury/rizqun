@@ -8,6 +8,9 @@ import type {
   FinalizeOrderPayload,
   PublicOrder,
   PaginatedPendingOrders,
+  OrderVendorGroups,
+  AuditLog,
+  OrderStatus,
 } from '@/types/order';
 
 // ─── Finalize (POST /orders) ───────────────────────────────────
@@ -22,13 +25,78 @@ export function useFinalizeOrder() {
       return data.order;
     },
     onSuccess: (order: PublicOrder) => {
-      // Invalidate everything related to orders so the pending list
-      // picks up the new order.
       queryClient.invalidateQueries({ queryKey: ['orders'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       toast.success(`Order ${order.orderCode} created`);
-      // Navigate to the pending list so the operator sees their new order
       navigate('/orders/pending');
+    },
+    onError: (error) => toast.apiError(error),
+  });
+}
+
+// ─── Order detail (GET /orders/:id) ────────────────────────────
+
+export function useOrder(id: number) {
+  return useQuery({
+    queryKey: ['orders', 'detail', id] as const,
+    queryFn: async () => {
+      const data = (await api.get<OrderResponse>(`/orders/${id}`)) as OrderResponse;
+      return data.order;
+    },
+    enabled: id > 0,
+  });
+}
+
+// ─── Vendor groups (GET /orders/:id/vendor-groups) ─────────────
+
+export function useOrderVendorGroups(orderId: number, enabled = true) {
+  return useQuery({
+    queryKey: ['orders', 'vendor-groups', orderId] as const,
+    queryFn: async () => {
+      return (await api.get<OrderVendorGroups>(
+        `/orders/${orderId}/vendor-groups`,
+      )) as OrderVendorGroups;
+    },
+    enabled: enabled && orderId > 0,
+  });
+}
+
+// ─── Audit log (GET /orders/:id/audit-log) ────────────────────
+
+export function useOrderAuditLog(orderId: number, enabled = true) {
+  return useQuery({
+    queryKey: ['orders', 'audit-log', orderId] as const,
+    queryFn: async () => {
+      return (await api.get<AuditLog>(`/orders/${orderId}/audit-log`)) as AuditLog;
+    },
+    enabled: enabled && orderId > 0,
+  });
+}
+
+// ─── Update status (PATCH /orders/:id/status) ──────────────────
+
+export function useUpdateOrderStatus() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      id,
+      status,
+      note,
+    }: {
+      id: number;
+      status: OrderStatus;
+      note?: string;
+    }) => {
+      const data = (await api.patch<OrderResponse>(`/orders/${id}/status`, {
+        status,
+        ...(note ? { note } : {}),
+      })) as OrderResponse;
+      return data.order;
+    },
+    onSuccess: (order: PublicOrder) => {
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      toast.success(`Status updated to ${order.status}`);
     },
     onError: (error) => toast.apiError(error),
   });
@@ -55,8 +123,6 @@ export function usePendingOrders(query: PendingOrdersQuery = {}) {
         `/orders/pending${qs}`,
       )) as PaginatedPendingOrders;
     },
-    // Auto-refresh every 30s so the operator sees new orders without
-    // manually refreshing
     refetchInterval: 30_000,
   });
 }

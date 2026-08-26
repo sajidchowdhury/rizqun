@@ -1816,8 +1816,8 @@ Phase 3 — Order Building
   ✓ 3.5  Pending list view
 
 Phase 4 — Order Operations
-  ☐ 4.1  Order detail modal/page
-  ☐ 4.2  Vendor groups + WhatsApp send
+  ✓ 4.1  Order detail modal/page
+  ✓ 4.2  Vendor groups + WhatsApp send
   ☐ 4.3  Status update workflow
   ☐ 4.4  Add/remove items mid-flight
   ☐ 4.5  Cancel order + audit log
