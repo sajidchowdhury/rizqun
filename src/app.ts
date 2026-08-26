@@ -10,6 +10,7 @@ import authRoutes from './modules/auth/auth.routes';
 import vendorRoutes from './modules/vendors/vendors.routes';
 import productRoutes from './modules/products/products.routes';
 import orderRoutes from './modules/orders/orders.routes';
+import dashboardRoutes from './modules/dashboard/dashboard.routes';
 
 const app = express();
 
@@ -40,6 +41,7 @@ app.use('/auth', authRoutes);
 app.use('/vendors', vendorRoutes);
 app.use('/products', productRoutes);
 app.use('/orders', orderRoutes);
+app.use('/dashboard', dashboardRoutes);
 
 // ─── Health check ──────────────────────────────────────────────
 app.get('/health', async (_req: Request, res: Response) => {

@@ -152,6 +152,7 @@ unset DATABASE_URL && npx tsx scripts/db-smoke-test.ts
 | POST | `/orders/:id/items` | any authed (scoped) | Add item to pending order (sets `addedAfterFinalize=true`, recomputes totals, audit log) |
 | DELETE | `/orders/:id/items/:itemId` | any authed (scoped) | Remove item from pending order (recomputes totals, audit log; can't remove last item) |
 | DELETE | `/orders/:id` | any authed (scoped) | Cancel (soft-delete) — only from pending/waiting_vendor/preparing; preserves audit trail |
+| GET | `/dashboard/summary?month=2026-08` | any authed (scoped) | Monthly summary: `doneCount`, `avgTotalMinutes`, `avgStepMinutes` per transition |
 
 ### Middlewares (in `src/middlewares/`)
 
