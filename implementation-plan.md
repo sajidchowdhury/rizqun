@@ -886,13 +886,13 @@ cancelled    → (terminal)
 | 5. WhatsApp | 5.1, 5.2 | ✅ |
 | 6. Edit Pending | 6.1, 6.2, 6.3 | ✅ |
 | 7. Done & Dashboard | 7.1, 7.2, 7.3 | ✅ |
-| 8. Rating | 8.1, 8.2 | 🔄 next |
-| 9. Super Admin | 9.1, 9.2 | ☐ |
+| 8. Rating | 8.1, 8.2 | ✅ |
+| 9. Super Admin | 9.1, 9.2 | 🔄 next |
 | 10. Hardening | 10.1, 10.2, 10.3 | ☐ |
 | 11. Deployment | 11.1, 11.2, 11.3, 11.4 | ☐ |
 
 **Total: 38 sessions across 12 phases.**
-**Completed: 26 / 38 sessions**
+**Completed: 27 / 38 sessions**
 
 ### Session Log
 
@@ -924,5 +924,6 @@ cancelled    → (terminal)
 | 7.2 — Dashboard Summary Endpoint | `1c7edcb` | `GET /dashboard/summary?month=YYYY-MM` — `doneCount`, `avgTotalMinutes`, `avgStepMinutes` per transition via LAG window function on `status_log`; role-scoped; 7-test smoke script |
 | 7.3 — Dashboard Charts Endpoints | `5b4fca7` | 3 chart-data endpoints: `orders-per-day` (zero-filled), `avg-time-per-day` (null-filled), `category-breakdown` (COUNT DISTINCT per category); 8-test smoke script |
 | 8.1 — Generate Rating Link | `937fdfe` | `POST /orders/:id/rating-link` — 32-char hex token (128-bit entropy), idempotent, delivered-only check, 409 if already rated; 11-test smoke script |
+| 8.2 — Public Rating Form + Submit | `ccbdee0` | `GET /orders/rating-form/:token` (public, minimal data) + `POST /ratings` (public, rate-limited 5/hr, token consumed on submit); 11-test smoke script |
 
 After each session, paste the session's Confirmation Checkpoint back to the owner. Only after explicit "✅ confirmed" do we start the next session.
