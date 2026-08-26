@@ -163,6 +163,10 @@ unset DATABASE_URL && npx tsx scripts/db-smoke-test.ts
 | POST | `/users` | `super_admin` | Create a user (validates categoryAccess against existing categories) |
 | PATCH | `/users/:id` | `super_admin` | Update a user (name/email/phone/password/role/categoryAccess/isActive) |
 | DELETE | `/users/:id` | `super_admin` | Soft-delete a user (`isActive=false`) — can't self-delete |
+| GET | `/categories` | any authed | List all categories (id, slug, name, timestamps) |
+| POST | `/categories` | `super_admin` | Create a category (slug must be lowercase alphanumeric) |
+| PATCH | `/categories/:id` | `super_admin` | Update a category (partial: slug, name) |
+| DELETE | `/categories/:id` | `super_admin` | Physically delete a category (blocked if products exist) |
 
 ### Middlewares (in `src/middlewares/`)
 
