@@ -147,3 +147,43 @@ export const updateOrderStatusSchema = z.object({
 });
 
 export type UpdateOrderStatusInput = z.infer<typeof updateOrderStatusSchema>;
+
+// ─── Pending list query (GET /orders/pending) ─────────────────
+// Specialized endpoint for the operator's most-used view.
+//
+// Filters to "in-flight" orders only — status IN (pending, waiting_vendor, preparing).
+// Excludes picked_up/delivered/cancelled because those don't need operator attention.
+//
+// Adds `minutesSinceCreated` (integer) for the UI to display "5 min ago" badges.
+
+export const listPendingOrdersQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+  // Search by customer name OR phone (partial, case-insensitive)
+  customer: z.string().trim().optional(),
+});
+
+export type ListPendingOrdersQuery = z.infer<typeof listPendingOrdersQuerySchema>;
+
+export interface PendingOrderListItem {
+  id: number;
+  orderCode: string;
+  userId: number;
+  customerName: string;
+  customerPhone: string;
+  status: string;
+  total: string;
+  itemsCount: number;
+  createdAt: Date;
+  minutesSinceCreated: number; // computed: floor((now - createdAt) / 60s)
+}
+
+export interface PaginatedPendingOrders {
+  data: PendingOrderListItem[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+}

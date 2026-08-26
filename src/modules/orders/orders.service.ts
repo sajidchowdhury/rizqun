@@ -2,7 +2,7 @@ import { Prisma, type OrderStatus } from '@prisma/client';
 import { prisma } from '../../config/prisma';
 import { AppError } from '../../utils/AppError';
 import { generateUniqueOrderCode } from '../../utils/orderCode';
-import { isTransitionAllowed } from './orders.dto';
+import { isTransitionAllowed, EDITABLE_STATUSES } from './orders.dto';
 import type {
   FinalizeOrderInput,
   PublicOrder,
@@ -11,6 +11,9 @@ import type {
   PaginatedOrders,
   OrderListItem,
   UpdateOrderStatusInput,
+  ListPendingOrdersQuery,
+  PaginatedPendingOrders,
+  PendingOrderListItem,
 } from './orders.dto';
 
 // ─── Helpers ───────────────────────────────────────────────────
@@ -471,3 +474,79 @@ const ALLOWED_TRANSITIONS_LABEL: Record<string, string> = {
   delivered: '(none — terminal)',
   cancelled: '(none — terminal)',
 };
+
+// ─── Pending list (operator's primary view) ────────────────────
+//
+// Same scoping as `listOrders` (super_admin sees all, operators see own).
+// Restricted to "in-flight" statuses only — pending, waiting_vendor, preparing.
+//
+// We compute `minutesSinceCreated` in the application layer rather than SQL
+// because the conversion logic stays readable in TS.
+
+export async function listPendingOrders(
+  query: ListPendingOrdersQuery,
+  ctx: ListContext,
+): Promise<PaginatedPendingOrders> {
+  const where: Prisma.OrderWhereInput = {
+    status: { in: EDITABLE_STATUSES as OrderStatus[] },
+  };
+
+  // Scope by role — operators see only their own orders
+  if (ctx.role !== 'super_admin') {
+    where.userId = ctx.userId;
+  }
+
+  if (query.customer) {
+    where.OR = [
+      { customerName: { contains: query.customer, mode: 'insensitive' } },
+      { customerPhone: { contains: query.customer } },
+    ];
+  }
+
+  const [rows, total] = await Promise.all([
+    prisma.order.findMany({
+      where,
+      // Oldest first — operators want to see the most "stale" pending orders
+      // at the top so they don't forget them.
+      orderBy: { createdAt: 'asc' },
+      skip: (query.page - 1) * query.limit,
+      take: query.limit,
+      select: {
+        id: true,
+        orderCode: true,
+        userId: true,
+        customerName: true,
+        customerPhone: true,
+        status: true,
+        total: true,
+        createdAt: true,
+        _count: { select: { items: true } },
+      },
+    }),
+    prisma.order.count({ where }),
+  ]);
+
+  const now = Date.now();
+  const data: PendingOrderListItem[] = rows.map((r) => ({
+    id: r.id,
+    orderCode: r.orderCode,
+    userId: r.userId,
+    customerName: r.customerName,
+    customerPhone: r.customerPhone,
+    status: r.status,
+    total: r.total.toString(),
+    itemsCount: r._count.items,
+    createdAt: r.createdAt,
+    minutesSinceCreated: Math.floor((now - r.createdAt.getTime()) / 60_000),
+  }));
+
+  return {
+    data,
+    pagination: {
+      page: query.page,
+      limit: query.limit,
+      total,
+      totalPages: Math.ceil(total / query.limit),
+    },
+  };
+}

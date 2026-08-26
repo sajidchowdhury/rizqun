@@ -1,6 +1,17 @@
 import type { Request, Response } from 'express';
-import { finalizeOrderSchema, listOrdersQuerySchema, updateOrderStatusSchema } from './orders.dto';
-import { finalizeOrder, listOrders, getOrderById, updateOrderStatus } from './orders.service';
+import {
+  finalizeOrderSchema,
+  listOrdersQuerySchema,
+  updateOrderStatusSchema,
+  listPendingOrdersQuerySchema,
+} from './orders.dto';
+import {
+  finalizeOrder,
+  listOrders,
+  getOrderById,
+  updateOrderStatus,
+  listPendingOrders,
+} from './orders.service';
 import { sendSuccess } from '../../utils/response';
 import { AppError } from '../../utils/AppError';
 
@@ -88,4 +99,24 @@ export async function updateStatus(req: Request, res: Response): Promise<void> {
 
   const order = await updateOrderStatus(id, parsed.data, { userId, role });
   sendSuccess(res, { order }, 'Order status updated');
+}
+
+// ─── GET /orders/pending ──────────────────────────────────────
+// Specialized list for the operator's most-used view. Returns only "in-flight"
+// orders (pending, waiting_vendor, preparing), sorted oldest-first so stale
+// orders bubble to the top.
+export async function listPending(req: Request, res: Response): Promise<void> {
+  const parsed = listPendingOrdersQuerySchema.safeParse(req.query);
+  if (!parsed.success) {
+    throw new AppError(400, parsed.error.issues[0]?.message ?? 'Invalid query');
+  }
+
+  const userId = req.user?.userId;
+  const role = req.user?.role;
+  if (!userId || !role) {
+    throw new AppError(401, 'Not authenticated');
+  }
+
+  const result = await listPendingOrders(parsed.data, { userId, role });
+  sendSuccess(res, result, 'Pending orders retrieved');
 }
