@@ -153,6 +153,9 @@ unset DATABASE_URL && npx tsx scripts/db-smoke-test.ts
 | DELETE | `/orders/:id/items/:itemId` | any authed (scoped) | Remove item from pending order (recomputes totals, audit log; can't remove last item) |
 | DELETE | `/orders/:id` | any authed (scoped) | Cancel (soft-delete) — only from pending/waiting_vendor/preparing; preserves audit trail |
 | GET | `/dashboard/summary?month=2026-08` | any authed (scoped) | Monthly summary: `doneCount`, `avgTotalMinutes`, `avgStepMinutes` per transition |
+| GET | `/dashboard/orders-per-day?days=30` | any authed (scoped) | Daily delivered-order count (zero-filled, ready for bar chart) |
+| GET | `/dashboard/avg-time-per-day?days=30` | any authed (scoped) | Daily avg total time in minutes (null-filled, ready for line chart) |
+| GET | `/dashboard/category-breakdown?month=2026-08` | any authed (scoped) | Order count per category (COUNT DISTINCT, ready for donut chart) |
 
 ### Middlewares (in `src/middlewares/`)
 
