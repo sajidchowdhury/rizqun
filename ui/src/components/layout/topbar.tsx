@@ -17,6 +17,7 @@ import { Sidebar } from './sidebar';
 import { Breadcrumb } from './breadcrumb';
 import { ModeToggle } from './mode-toggle';
 import { ProductSearch } from '@/components/products/product-search';
+import { HealthIndicator } from '@/components/layout/health-indicator';
 import type { ProductSearchResult } from '@/types/product';
 
 export function Topbar() {
@@ -68,8 +69,9 @@ export function Topbar() {
         />
       </div>
 
-      {/* Right: theme toggle + user menu */}
+      {/* Right: health indicator + theme toggle + user menu */}
       <div className="flex items-center gap-2">
+        <HealthIndicator />
         <ModeToggle />
 
         {isInitializing ? (

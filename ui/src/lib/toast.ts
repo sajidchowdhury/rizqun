@@ -25,12 +25,18 @@ export const toast = {
   apiError(error: unknown) {
     if (error instanceof ApiError) {
       // 0 — network/CORS error (no response from server at all).
-      // Almost always a CORS origin mismatch (e.g. user opened the app
-      // at http://127.0.0.1:5173 but the backend only allows
-      // http://localhost:5173) OR the backend isn't running.
+      // Two common causes:
+      //   1. Backend not running → start it with `npm start` in the
+      //      rizqun root folder (D:\DeveloperHub\rizqun)
+      //   2. CORS origin mismatch → user opened the app at
+      //      http://127.0.0.1:5173 instead of http://localhost:5173
       if (error.status === 0) {
         sonnerToast.error(
-          "Couldn't reach the server. Check that the backend is running and you're using http://localhost:5173 (not 127.0.0.1).",
+          "Couldn't reach the backend. Start it with: cd D:\\DeveloperHub\\rizqun && npm start",
+          {
+            description: 'Also make sure you opened http://localhost:5173 (not 127.0.0.1).',
+            duration: 8000,
+          },
         );
         return;
       }
