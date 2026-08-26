@@ -18,6 +18,7 @@ import type {
   CancelOrderInput,
   OrderVendorGroups,
   VendorGroup,
+  UpdateOrderInput,
 } from './orders.dto';
 
 // ─── Helpers ───────────────────────────────────────────────────
@@ -759,4 +760,81 @@ export async function getOrderVendorGroups(
     customerAddress: order.customerAddress,
     groups,
   };
+}
+
+// ─── Update order (PATCH /orders/:id) ────────────────────────
+//
+// Inline-edit customer info while the order is editable.
+// Returns 409 if the order is in a locked state (picked_up/delivered/cancelled).
+//
+// If `deliveryFee` is being changed, we recompute `total = subtotal + deliveryFee`
+// (subtotal is the sum of all order_items.line_total and never changes here —
+// item changes go through the add/remove item endpoints in Phase 6).
+
+export async function updateOrder(
+  orderId: number,
+  input: UpdateOrderInput,
+  ctx: ListContext,
+): Promise<PublicOrder> {
+  const order = await prisma.order.findUnique({
+    where: { id: orderId },
+    include: {
+      items: {
+        include: {
+          vendor: {
+            select: { id: true, name: true, phone: true, whatsappNumber: true },
+          },
+        },
+        orderBy: { id: 'asc' },
+      },
+    },
+  });
+
+  if (!order) {
+    throw new AppError(404, 'Order not found');
+  }
+
+  // Scope check — non-super_admin users can only update their own orders
+  if (ctx.role !== 'super_admin' && order.userId !== ctx.userId) {
+    throw new AppError(404, 'Order not found');
+  }
+
+  // Editable check
+  if (!EDITABLE_STATUSES.includes(order.status)) {
+    throw new AppError(
+      409,
+      `Cannot update order in status '${order.status}'. Only orders in ${EDITABLE_STATUSES.join(', ')} can be edited.`,
+    );
+  }
+
+  // Compute new total if deliveryFee is changing
+  // subtotal stays the same (no item changes here) — only deliveryFee affects total
+  const newDeliveryFee =
+    input.deliveryFee !== undefined ? new Prisma.Decimal(input.deliveryFee) : order.deliveryFee;
+  const newTotal = order.subtotal.plus(newDeliveryFee);
+
+  const updated = await prisma.order.update({
+    where: { id: order.id },
+    data: {
+      ...(input.customerName !== undefined && { customerName: input.customerName }),
+      ...(input.customerPhone !== undefined && { customerPhone: input.customerPhone }),
+      ...(input.customerAddress !== undefined && { customerAddress: input.customerAddress }),
+      ...(input.deliveryFee !== undefined && {
+        deliveryFee: input.deliveryFee,
+        total: newTotal,
+      }),
+    },
+    include: {
+      items: {
+        include: {
+          vendor: {
+            select: { id: true, name: true, phone: true, whatsappNumber: true },
+          },
+        },
+        orderBy: { id: 'asc' },
+      },
+    },
+  });
+
+  return toPublicOrder(updated);
 }

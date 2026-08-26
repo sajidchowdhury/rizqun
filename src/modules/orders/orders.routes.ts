@@ -7,6 +7,7 @@ import {
   listPending,
   cancel,
   getVendorGroups,
+  update,
 } from './orders.controller';
 import { asyncHandler } from '../../utils/asyncHandler';
 import { authenticate } from '../../middlewares/auth.middleware';
@@ -26,8 +27,11 @@ router.get('/', asyncHandler(list));
 // doesn't treat "pending" as an order id.
 router.get('/pending', asyncHandler(listPending));
 
-// PATCH /orders/:id/status — update status
+// PATCH /orders/:id/status — update status (more specific path declared first)
 router.patch('/:id/status', asyncHandler(updateStatus));
+
+// PATCH /orders/:id — update customer info / deliveryFee (general)
+router.patch('/:id', asyncHandler(update));
 
 // GET /orders/:id/vendor-groups — items grouped by vendor + copy text + wa.me URL
 router.get('/:id/vendor-groups', asyncHandler(getVendorGroups));

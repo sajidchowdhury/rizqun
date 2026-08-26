@@ -5,6 +5,7 @@ import {
   updateOrderStatusSchema,
   listPendingOrdersQuerySchema,
   cancelOrderSchema,
+  updateOrderSchema,
 } from './orders.dto';
 import {
   finalizeOrder,
@@ -14,6 +15,7 @@ import {
   listPendingOrders,
   cancelOrder,
   getOrderVendorGroups,
+  updateOrder,
 } from './orders.service';
 import { sendSuccess } from '../../utils/response';
 import { AppError } from '../../utils/AppError';
@@ -166,4 +168,28 @@ export async function getVendorGroups(req: Request, res: Response): Promise<void
 
   const result = await getOrderVendorGroups(id, { userId, role });
   sendSuccess(res, result, 'Vendor groups retrieved');
+}
+
+// ─── PATCH /orders/:id (update customer info / deliveryFee) ──
+// Inline-edit while order is in an editable state (pending/waiting_vendor/preparing).
+// Recomputes total if deliveryFee changes.
+export async function update(req: Request, res: Response): Promise<void> {
+  const id = Number(req.params.id);
+  if (Number.isNaN(id) || id <= 0) {
+    throw new AppError(400, 'Invalid order id');
+  }
+
+  const parsed = updateOrderSchema.safeParse(req.body);
+  if (!parsed.success) {
+    throw new AppError(400, parsed.error.issues[0]?.message ?? 'Invalid input');
+  }
+
+  const userId = req.user?.userId;
+  const role = req.user?.role;
+  if (!userId || !role) {
+    throw new AppError(401, 'Not authenticated');
+  }
+
+  const order = await updateOrder(id, parsed.data, { userId, role });
+  sendSuccess(res, { order }, 'Order updated');
 }

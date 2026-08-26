@@ -249,3 +249,29 @@ export interface OrderVendorGroups {
   customerAddress: string | null;
   groups: VendorGroup[];
 }
+
+// ─── Update order (PATCH /orders/:id) ─────────────────────────
+// Inline-edit customer info while the order is in an editable state
+// (pending, waiting_vendor, preparing).
+//
+// At least one field must be provided. Empty body → 400.
+// `deliveryFee` changes trigger a total recompute (total = subtotal + deliveryFee).
+//
+// Once the order is picked_up/delivered/cancelled, this endpoint returns 409.
+
+export const updateOrderSchema = z
+  .object({
+    customerName: z.string().trim().min(2).max(200).optional(),
+    customerPhone: z
+      .string()
+      .trim()
+      .regex(bangladeshiPhoneRegex, 'Customer phone must be a valid Bangladeshi number')
+      .optional(),
+    customerAddress: z.string().trim().max(500).nullable().optional(),
+    deliveryFee: z.number().min(0).max(99999999.99).optional(),
+  })
+  .refine((data) => Object.keys(data).length > 0, {
+    message: 'At least one field must be provided',
+  });
+
+export type UpdateOrderInput = z.infer<typeof updateOrderSchema>;
