@@ -310,6 +310,26 @@ Features:
 - Gzip compression
 - Auto-renewing SSL certificates via Let's Encrypt
 
+### Database backups
+
+See [`deploy/backups/README.md`](./deploy/backups/README.md) for the full guide.
+
+Quick summary:
+```bash
+# Manual backup
+./deploy/backups/backup.sh
+
+# Restore (stops API, drops DB, restores, verifies)
+./deploy/backups/restore.sh backups/rizqun_2026-08-26_020000.sql.gz
+
+# Cron (nightly at 2 AM)
+0 2 * * * /home/rizqun/rizqun/deploy/backups/backup.sh >> /home/rizqun/logs/backup.log 2>&1
+```
+
+- Local retention: 30 days (configurable via `RETENTION_DAYS`)
+- Offsite upload: optional via rclone/aws-cli (S3, Backblaze, etc.)
+- Restore: drops + recreates DB, verifies table/user/order counts
+
 ## Code quality
 
 This project uses:
