@@ -892,7 +892,7 @@ cancelled    → (terminal)
 | 11. Deployment | 11.1, 11.2, 11.3, 11.4 | ☐ |
 
 **Total: 38 sessions across 12 phases.**
-**Completed: 12 / 38 sessions**
+**Completed: 13 / 38 sessions**
 
 ### Session Log
 
@@ -910,5 +910,6 @@ cancelled    → (terminal)
 | 2.4 — Smart Search Endpoint | `18d1364` | `GET /products/search` with FTS + ILIKE fallback + category scoping; 10-test smoke script, grocery/medicine operators properly scoped |
 | 2.5 — Quick-Add Product | `8745514` | `POST /products/quick-add` for operators — auto-SKU, category-access enforced, vendor validation; 12-test smoke script |
 | 3.1 — Order + OrderItem Schema | `5e9f9ed` | `Order` (status enum, orderCode, ratingToken), `OrderItem` (snapshots, denormalized vendor_id), `StatusLog` (append-only audit), `Rating` (1/order unique); cascade + uniqueness verified |
+| 3.2 — Finalize Order Endpoint | `8788bbf` | `POST /orders` — batch product fetch, category-access validation, snapshots, single transaction (order + items + status_log), orderCode `ORD-YYYY-NNNNN`; 11-test smoke script, snapshot integrity confirmed |
 
 After each session, paste the session's Confirmation Checkpoint back to the owner. Only after explicit "✅ confirmed" do we start the next session.
