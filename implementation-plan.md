@@ -892,7 +892,7 @@ cancelled    → (terminal)
 | 11. Deployment | 11.1, 11.2, 11.3, 11.4 | 🔄 next |
 
 **Total: 38 sessions across 12 phases.**
-**Completed: 32 / 38 sessions**
+**Completed: 33 / 38 sessions**
 
 ### Session Log
 
@@ -930,5 +930,6 @@ cancelled    → (terminal)
 | 10.1 — Rate Limiting & Brute-Force Protection | `a587d04` | `loginLimiter` (5/15min), `generalApiLimiter` (100/min, skips /health), helmet + CORS verified; 6-test smoke script |
 | 10.2 — Input Validation & Sanitization | `e588078` | `z.strictObject()` on all body schemas (reject unknown fields), verified email normalization, phone validation, whitespace trimming, numeric bounds, string length, enum validation; 8-category smoke script |
 | 10.3 — Logging & Observability | `dc4b46a` | pino + pino-http replacing morgan, structured JSON logs (dev: pretty, prod: raw JSON), request/error/status-transition logging, /health excluded; 9-test smoke script |
+| 11.1 — Production Build & PM2 | `9ec3afc` | `npm run build` → dist/ (21 files), `npm start` → production mode, `ecosystem.config.js` for PM2 (fork, autorestart, log files), graceful shutdown verified; 6-test smoke script |
 
 After each session, paste the session's Confirmation Checkpoint back to the owner. Only after explicit "✅ confirmed" do we start the next session.
