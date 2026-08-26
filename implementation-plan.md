@@ -892,7 +892,7 @@ cancelled    → (terminal)
 | 11. Deployment | 11.1, 11.2, 11.3, 11.4 | ☐ |
 
 **Total: 38 sessions across 12 phases.**
-**Completed: 29 / 38 sessions**
+**Completed: 30 / 38 sessions**
 
 ### Session Log
 
@@ -927,5 +927,6 @@ cancelled    → (terminal)
 | 8.2 — Public Rating Form + Submit | `ccbdee0` | `GET /orders/rating-form/:token` (public, minimal data) + `POST /ratings` (public, rate-limited 5/hr, token consumed on submit); 11-test smoke script |
 | 9.1 — User CRUD | `40929ed` | `GET/POST/PATCH/DELETE /users` — super_admin only, bcrypt password, categoryAccess validation, self-protection (can't self-deactivate/demote/delete), soft-delete; 24-test smoke script |
 | 9.2 — Category Management | `d83692f` | `GET/POST/PATCH/DELETE /categories` — slug regex validation, physical delete (blocked if products exist), read for any authed; 18-test smoke script |
+| 10.1 — Rate Limiting & Brute-Force Protection | `a587d04` | `loginLimiter` (5/15min), `generalApiLimiter` (100/min, skips /health), helmet + CORS verified; 6-test smoke script |
 
 After each session, paste the session's Confirmation Checkpoint back to the owner. Only after explicit "✅ confirmed" do we start the next session.
