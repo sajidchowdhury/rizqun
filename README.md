@@ -141,6 +141,8 @@ unset DATABASE_URL && npx tsx scripts/db-smoke-test.ts
 | PATCH | `/products/:id` | `super_admin` | Update a product (partial; SKU conflict → 409) |
 | DELETE | `/products/:id` | `super_admin` | Soft-delete a product (`isActive=false`) |
 | POST | `/orders` | any authed (scoped) | Finalize cart — snapshots product name/price, computes totals, creates order + status_log |
+| GET | `/orders?page=&limit=&status=&from=&to=&search=` | any authed (scoped) | Paginated list (operators see own only, super_admin sees all) |
+| GET | `/orders/:id` | any authed (scoped) | Full order detail with items + nested vendor info (404 if not own) |
 
 ### Middlewares (in `src/middlewares/`)
 

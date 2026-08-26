@@ -2,7 +2,14 @@ import { Prisma, type OrderStatus } from '@prisma/client';
 import { prisma } from '../../config/prisma';
 import { AppError } from '../../utils/AppError';
 import { generateUniqueOrderCode } from '../../utils/orderCode';
-import type { FinalizeOrderInput, PublicOrder, PublicOrderItem } from './orders.dto';
+import type {
+  FinalizeOrderInput,
+  PublicOrder,
+  PublicOrderItem,
+  ListOrdersQuery,
+  PaginatedOrders,
+  OrderListItem,
+} from './orders.dto';
 
 // ─── Helpers ───────────────────────────────────────────────────
 
@@ -237,6 +244,125 @@ export async function finalizeOrder(
   if (!order) {
     // Should be impossible — we just created the order in the transaction
     throw new AppError(500, 'Failed to create order');
+  }
+
+  return toPublicOrder(order);
+}
+
+// ─── List orders ────────────────────────────────────────────────
+//
+// Scoping rules:
+//   - super_admin → sees all orders
+//   - regular user → sees only their own orders
+//
+// This is enforced by the `where.userId` clause based on the caller's role.
+
+interface ListContext {
+  userId: number;
+  role: string;
+}
+
+export async function listOrders(
+  query: ListOrdersQuery,
+  ctx: ListContext,
+): Promise<PaginatedOrders> {
+  const where: Prisma.OrderWhereInput = {};
+
+  // Scope by role — operators see only their own orders
+  if (ctx.role !== 'super_admin') {
+    where.userId = ctx.userId;
+  }
+
+  if (query.status) {
+    where.status = query.status;
+  }
+
+  if (query.from || query.to) {
+    where.createdAt = {};
+    if (query.from) where.createdAt.gte = new Date(query.from);
+    if (query.to) where.createdAt.lt = new Date(query.to);
+  }
+
+  if (query.search) {
+    where.OR = [
+      { customerName: { contains: query.search, mode: 'insensitive' } },
+      { customerPhone: { contains: query.search } },
+    ];
+  }
+
+  const [rows, total] = await Promise.all([
+    prisma.order.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      skip: (query.page - 1) * query.limit,
+      take: query.limit,
+      // We don't load items here — just the count, for the list view
+      // (loading all items for every list row would be wasteful)
+      select: {
+        id: true,
+        orderCode: true,
+        userId: true,
+        customerName: true,
+        customerPhone: true,
+        status: true,
+        total: true,
+        createdAt: true,
+        deliveredAt: true,
+        _count: { select: { items: true } },
+      },
+    }),
+    prisma.order.count({ where }),
+  ]);
+
+  const data: OrderListItem[] = rows.map((r) => ({
+    id: r.id,
+    orderCode: r.orderCode,
+    userId: r.userId,
+    customerName: r.customerName,
+    customerPhone: r.customerPhone,
+    status: r.status,
+    total: r.total.toString(),
+    itemsCount: r._count.items,
+    createdAt: r.createdAt,
+    deliveredAt: r.deliveredAt,
+  }));
+
+  return {
+    data,
+    pagination: {
+      page: query.page,
+      limit: query.limit,
+      total,
+      totalPages: Math.ceil(total / query.limit),
+    },
+  };
+}
+
+// ─── Get one order ─────────────────────────────────────────────
+
+export async function getOrderById(id: number, ctx: ListContext): Promise<PublicOrder> {
+  const order = await prisma.order.findUnique({
+    where: { id },
+    include: {
+      items: {
+        include: {
+          vendor: {
+            select: { id: true, name: true, phone: true, whatsappNumber: true },
+          },
+        },
+        orderBy: { id: 'asc' },
+      },
+    },
+  });
+
+  if (!order) {
+    throw new AppError(404, 'Order not found');
+  }
+
+  // Scope check: non-super_admin users can only see their own orders
+  if (ctx.role !== 'super_admin' && order.userId !== ctx.userId) {
+    // Return 404 (not 403) to avoid leaking that the order exists
+    throw new AppError(404, 'Order not found');
   }
 
   return toPublicOrder(order);

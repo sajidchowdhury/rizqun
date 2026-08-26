@@ -60,3 +60,45 @@ export interface PublicOrder {
   deliveredAt: Date | null;
   items: PublicOrderItem[];
 }
+
+// ─── List query (GET /orders) ─────────────────────────────────
+
+export const listOrdersQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+  status: z
+    .enum(['pending', 'waiting_vendor', 'preparing', 'picked_up', 'delivered', 'cancelled'])
+    .optional(),
+  // Filter by date range (ISO 8601)
+  from: z.string().datetime().optional(),
+  to: z.string().datetime().optional(),
+  // Search by customer name or phone (partial match, case-insensitive)
+  search: z.string().trim().optional(),
+});
+
+export type ListOrdersQuery = z.infer<typeof listOrdersQuerySchema>;
+
+// ─── Paginated list response shape ────────────────────────────
+
+export interface OrderListItem {
+  id: number;
+  orderCode: string;
+  userId: number;
+  customerName: string;
+  customerPhone: string;
+  status: string;
+  total: string;
+  itemsCount: number;
+  createdAt: Date;
+  deliveredAt: Date | null;
+}
+
+export interface PaginatedOrders {
+  data: OrderListItem[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+}
