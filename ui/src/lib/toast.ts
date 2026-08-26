@@ -24,6 +24,16 @@ export const toast = {
    */
   apiError(error: unknown) {
     if (error instanceof ApiError) {
+      // 0 — network/CORS error (no response from server at all).
+      // Almost always a CORS origin mismatch (e.g. user opened the app
+      // at http://127.0.0.1:5173 but the backend only allows
+      // http://localhost:5173) OR the backend isn't running.
+      if (error.status === 0) {
+        sonnerToast.error(
+          "Couldn't reach the server. Check that the backend is running and you're using http://localhost:5173 (not 127.0.0.1).",
+        );
+        return;
+      }
       // 429 — rate limited (e.g. 5 wrong passwords in 15 min on /auth/login)
       if (error.isRateLimited) {
         sonnerToast.error('Too many attempts. Please try again in 15 minutes.');
@@ -49,7 +59,7 @@ export const toast = {
         sonnerToast.error(error.message);
         return;
       }
-      // 5xx / network
+      // 5xx — genuine server error (the backend returned an error status)
       sonnerToast.error('Server error. Please try again in a moment.');
       return;
     }

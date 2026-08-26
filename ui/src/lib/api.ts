@@ -143,13 +143,33 @@ api.interceptors.response.use(
 
     // ── Convert to ApiError ───────────────────────────────────────
     const body = error.response?.data;
-    const message =
-      (body &&
-        typeof body === 'object' &&
-        'message' in body &&
-        (body as { message: string }).message) ||
-      error.message ||
-      'Network error';
+
+    // Distinguish a real network/CORS error (no response from server)
+    // from a real 5xx (server returned an error status). The original
+    // code used `status || 500` which conflated the two — a CORS
+    // preflight failure (status 0) was surfaced as 500, and the toast
+    // helper then said "Server error" — misleading because the
+    // request never reached the backend. Now status 0 → 0, and the
+    // toast helper checks for 0 explicitly with a more helpful message.
+    let message: string;
+    let statusCode: number;
+    if (error.response) {
+      // Server responded with an error status (4xx, 5xx, etc.)
+      statusCode = error.response.status;
+      message =
+        (body &&
+          typeof body === 'object' &&
+          'message' in body &&
+          (body as { message: string }).message) ||
+        error.message ||
+        `Request failed with status ${statusCode}`;
+    } else {
+      // No response — network error, CORS preflight block, or DNS failure.
+      // Don't fake a 500; surface as 0 so the toast helper can show a
+      // meaningful "couldn't reach the server" message.
+      statusCode = 0;
+      message = error.message || 'Network error';
+    }
 
     const code =
       body && typeof body === 'object' && 'code' in body
@@ -159,7 +179,7 @@ api.interceptors.response.use(
     throw new ApiError({
       message,
       code,
-      status: status || 500, // 0 (network) surfaces as 500 to callers
+      status: statusCode,
       raw: error,
     });
   },
