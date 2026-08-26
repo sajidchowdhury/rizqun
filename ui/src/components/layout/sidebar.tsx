@@ -5,19 +5,17 @@ import { Menu, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { useAuth } from '@/hooks/use-auth';
 import { NAV_ITEMS } from './nav-items';
-
-// Placeholder for the logged-in user. Replaced with real auth in Phase 1.2.
-const PLACEHOLDER_USER = {
-  name: 'Operator',
-  role: 'user' as 'user' | 'super_admin',
-};
 
 export function Sidebar() {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { user, isInitializing } = useAuth();
 
-  // TODO Phase 1.4: filter NAV_ITEMS by user.role
-  const visibleItems = NAV_ITEMS; // .filter((item) => !item.adminOnly || PLACEHOLDER_USER.role === 'super_admin')
+  // Hide admin-only nav items for non-super_admin users.
+  const visibleItems = NAV_ITEMS.filter((item) => !item.adminOnly || user?.role === 'super_admin');
+
+  const initial = user?.name?.charAt(0).toUpperCase() ?? '?';
 
   return (
     <>
@@ -97,19 +95,32 @@ export function Sidebar() {
           </ul>
         </nav>
 
-        {/* User footer */}
+        {/* User footer — hidden until hydration completes so we don't
+            flash a placeholder "?" while /auth/me is in flight. */}
         <div className="border-t p-3">
-          <div className="flex items-center gap-3 rounded-md px-3 py-2">
-            <div className="flex size-8 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-semibold">
-              {PLACEHOLDER_USER.name.charAt(0).toUpperCase()}
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="truncate text-sm font-medium">{PLACEHOLDER_USER.name}</div>
-              <div className="text-xs text-muted-foreground capitalize">
-                {PLACEHOLDER_USER.role}
+          {isInitializing ? (
+            <div className="flex items-center gap-3 px-3 py-2">
+              <div className="size-8 animate-pulse rounded-full bg-muted" />
+              <div className="flex-1 space-y-1">
+                <div className="h-3 w-20 animate-pulse rounded bg-muted" />
+                <div className="h-2.5 w-12 animate-pulse rounded bg-muted" />
               </div>
             </div>
-          </div>
+          ) : user ? (
+            <div className="flex items-center gap-3 rounded-md px-3 py-2">
+              <div className="flex size-8 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-semibold">
+                {initial}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-sm font-medium">{user.name}</div>
+                <div className="text-xs text-muted-foreground capitalize">
+                  {user.role === 'super_admin' ? 'Super Admin' : user.role}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="px-3 py-2 text-sm text-muted-foreground">Not signed in</div>
+          )}
         </div>
       </aside>
     </>

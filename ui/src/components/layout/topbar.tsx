@@ -1,5 +1,5 @@
-import { Link } from 'react-router-dom';
-import { LogOut, Settings, User } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { LogOut, Settings, User as UserIcon } from 'lucide-react';
 
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -11,18 +11,22 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { useAuth } from '@/hooks/use-auth';
 import { Sidebar } from './sidebar';
 import { Breadcrumb } from './breadcrumb';
 import { ModeToggle } from './mode-toggle';
 
-// Placeholder for the logged-in user. Replaced with real auth in Phase 1.2.
-const PLACEHOLDER_USER = {
-  name: 'Operator',
-  email: 'operator@rizqun.com',
-  role: 'user' as 'user' | 'super_admin',
-};
-
 export function Topbar() {
+  const { user, logout, isInitializing } = useAuth();
+  const navigate = useNavigate();
+
+  const initial = user?.name?.charAt(0).toUpperCase() ?? '?';
+
+  async function handleLogout() {
+    await logout();
+    navigate('/login', { replace: true });
+  }
+
   return (
     <header className="sticky top-0 z-30 flex h-14 items-center justify-between gap-3 border-b bg-background/95 px-4 backdrop-blur md:px-6">
       {/* Left: hamburger (mobile) + breadcrumb */}
@@ -35,39 +39,52 @@ export function Topbar() {
       <div className="flex items-center gap-2">
         <ModeToggle />
 
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="rounded-full" aria-label="User menu">
-              <Avatar className="size-8">
-                <AvatarFallback>{PLACEHOLDER_USER.name.charAt(0).toUpperCase()}</AvatarFallback>
-              </Avatar>
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuLabel>
-              <div className="flex flex-col">
-                <span className="text-sm font-medium">{PLACEHOLDER_USER.name}</span>
-                <span className="text-xs text-muted-foreground">{PLACEHOLDER_USER.email}</span>
-              </div>
-            </DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem asChild>
-              <Link to="/dashboard">
-                <User className="mr-2 size-4" />
-                Profile
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem disabled>
-              <Settings className="mr-2 size-4" />
-              Settings
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem disabled className="text-destructive focus:text-destructive">
-              <LogOut className="mr-2 size-4" />
-              Logout
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        {isInitializing ? (
+          // Skeleton avatar while /auth/me is in flight
+          <div className="size-8 animate-pulse rounded-full bg-muted" />
+        ) : user ? (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="rounded-full" aria-label="User menu">
+                <Avatar className="size-8">
+                  <AvatarFallback>{initial}</AvatarFallback>
+                </Avatar>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuLabel>
+                <div className="flex flex-col">
+                  <span className="text-sm font-medium">{user.name}</span>
+                  <span className="text-xs text-muted-foreground">{user.email}</span>
+                </div>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem asChild>
+                <Link to="/dashboard">
+                  <UserIcon className="mr-2 size-4" />
+                  Profile
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem disabled>
+                <Settings className="mr-2 size-4" />
+                Settings
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={handleLogout}
+                className="text-destructive focus:text-destructive"
+              >
+                <LogOut className="mr-2 size-4" />
+                Logout
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ) : (
+          // Not logged in — show a Sign in button (will be wired in Phase 1.3)
+          <Button variant="outline" size="sm" asChild>
+            <Link to="/login">Sign in</Link>
+          </Button>
+        )}
       </div>
     </header>
   );

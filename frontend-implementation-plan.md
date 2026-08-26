@@ -249,11 +249,12 @@ gotchas hit. Updated after each session is committed.
 | 0.2 | `ab6186b` | shadcn CLI `init` defaulting to `base-nova` style; manually overrode to `new-york` style + `tw-animate-css` (replaces `tailwindcss-animate` which is Tailwind v3 only). shadcn writes imports as literal `src/lib/utils` instead of `@/lib/utils` — fixed in one pass after init. ESLint relaxed `react-refresh/only-export-components` for `src/components/ui/**` and `src/contexts/**` (intentional pattern in shadcn primitives + context providers). React 19 hooks rule flags `setState` inside `useEffect` — refactored `ThemeProvider` to compute `resolvedTheme` via `useMemo` and split `useTheme` hook into its own file. |
 | 0.3 | `7d56f70` | All 13 routes smoke-tested (return 200 in both `vite dev` and `vite preview`, confirming SPA fallback works for deep links like `/orders/123` and `/rating/<token>`). `PublicLayout` split into its own file to satisfy `react-refresh/only-export-components` rule in `routes/index.tsx`. TODO markers left in `routes/index.tsx` for Phase 1.4 to wrap `AppShell` in `ProtectedRoute` and gate `/categories` + `/users` with `AdminRoute`. |
 
-#### Phase 1 — API & Auth Foundation (1/4 done, 1 commit)
+#### Phase 1 — API & Auth Foundation (2/4 done, 2 commits)
 
 | Session | Commit | Notes |
 |---------|--------|-------|
-| 1.1 | (this commit) | `axios` + `@tanstack/react-query` v5 installed. The 401 refresh interceptor uses `fetch()` for the `/auth/refresh` call instead of `api.post` to avoid (a) re-triggering the request interceptor with a stale token, (b) infinite recursion if refresh itself 401s, and (c) a typing mismatch with the axios module augmentation (the augmentation changes `axios.post<T>` to return `Promise<T>` instead of `Promise<AxiosResponse<T>>` — fine for the `api` instance but wrong for raw `axios` calls). `tokenStore` is a module-level singleton (not React state) so the request interceptor can read the token synchronously. `AuthProvider` (Phase 1.2) will subscribe to `tokenStore` and persist to `sessionStorage` on login/logout. Smoke-tested end-to-end against the running backend: 4/4 tests pass (health unwrap, 401 error path, login + cookie, authenticated GET with attached token). Temporary smoke-test page (`_api-smoke-test.tsx`) deleted before commit; dashboard placeholder restored. |
+| 1.1 | `abb240a` | `axios` + `@tanstack/react-query` v5 installed. The 401 refresh interceptor uses `fetch()` for the `/auth/refresh` call instead of `api.post` to avoid (a) re-triggering the request interceptor with a stale token, (b) infinite recursion if refresh itself 401s, and (c) a typing mismatch with the axios module augmentation (the augmentation changes `axios.post<T>` to return `Promise<T>` instead of `Promise<AxiosResponse<T>>` — fine for the `api` instance but wrong for raw `axios` calls). `tokenStore` is a module-level singleton (not React state) so the request interceptor can read the token synchronously. `AuthProvider` (Phase 1.2) subscribes to `tokenStore` and persists to `sessionStorage` on login/logout. Smoke-tested end-to-end against the running backend: 4/4 tests pass (health unwrap, 401 error path, login + cookie, authenticated GET with attached token). Temporary smoke-test page (`_api-smoke-test.tsx`) deleted before commit; dashboard placeholder restored. |
+| 1.2 | (this commit) | `AuthProvider` subscribes to `tokenStore` (re-renders on token change). On mount: hydrates from `sessionStorage` → calls `GET /auth/me` → populates user, or clears on failure. `setLogoutHandler` registers a callback so the axios 401-refresh-failure path stays in sync with React state. `useAuth` hook split into `src/hooks/use-auth.ts` to satisfy `react-refresh/only-export-components`. Sidebar now: (a) filters out `adminOnly` nav items for non-super_admin users, (b) shows real user name + role in footer (or skeleton during hydration, or "Not signed in"), (c) handles `isInitializing` to avoid flashing placeholder "?" before `/auth/me` resolves. Topbar shows user dropdown with real name/email + working Logout button (navigates to `/login` via `useNavigate`); falls back to "Sign in" link when not authenticated. Browser smoke test passes 5/5: initial state → login → refresh (sessionStorage restore) → logout → refresh (stays null). Note: tests must be run with the browser at `http://localhost:5173` (not `127.0.0.1:5173`) so the origin matches the backend's `CORS_ORIGINS` allow-list. |
 
 ---
 
@@ -1751,7 +1752,7 @@ Phase 0 — Bootstrap
 
 Phase 1 — API & Auth Foundation
   ✓ 1.1  API client (axios + interceptors)
-  ☐ 1.2  Auth context + token storage
+  ✓ 1.2  Auth context + token storage
   ☐ 1.3  Login page
   ☐ 1.4  Protected routes + role-based UI
 

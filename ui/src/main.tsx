@@ -4,6 +4,7 @@ import { QueryClientProvider } from '@tanstack/react-query';
 
 import { queryClient } from '@/lib/query-client';
 import { ThemeProvider } from '@/contexts/theme-provider';
+import { AuthProvider } from '@/contexts/auth-provider';
 import App from './App.tsx';
 import './index.css';
 
@@ -16,7 +17,9 @@ createRoot(rootElement).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
       <ThemeProvider defaultTheme="system">
-        <App />
+        <AuthProvider>
+          <App />
+        </AuthProvider>
       </ThemeProvider>
     </QueryClientProvider>
   </StrictMode>,
