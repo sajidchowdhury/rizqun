@@ -293,7 +293,7 @@ phase:
 
 User reported the UI looked broken: only the brand row was visible in the sidebar, no nav items, no breadcrumb, no search bar. Root cause: Tailwind v4's `.inset-y-0` generates `inset-block: 0` (CSS logical property) instead of `top: 0; bottom: 0;` (physical properties, as Tailwind v3 did). Chrome computes `top: 0` and `bottom: 0` correctly from `inset-block: 0` BUT does not auto-stretch a `position: fixed` element to fill the viewport when only the logical `inset-block` is set — the element's height collapses to its content height (just the brand row at h-14 = 56px), pushing the nav + user footer below the visible area. Fix: added explicit `h-screen` (100vh) class to the `<aside>` element. This was a pre-existing bug since Phase 0.3 — smoke tests missed it because `agent-browser`'s snapshot inspects the accessibility tree (which lists all DOM elements regardless of CSS visibility).
 
-#### Phase 3 — Order Building (3/5 done, 3 commits + 1 bugfix)
+#### Phase 3 — Order Building (5/5 done, 5 commits + 2 bugfixes — Phase 3 complete)
 
 | Session | Commit | Notes |
 |---------|--------|-------|
@@ -1812,8 +1812,8 @@ Phase 3 — Order Building
   ✓ 3.1  Cart state (zustand)
   ✓ 3.2  Product picker modal
   ✓ 3.3  Quick-add custom product
-  ☐ 3.4  Customer info + finalize order
-  ☐ 3.5  Pending list view
+  ✓ 3.4  Customer info + finalize order
+  ✓ 3.5  Pending list view
 
 Phase 4 — Order Operations
   ☐ 4.1  Order detail modal/page
