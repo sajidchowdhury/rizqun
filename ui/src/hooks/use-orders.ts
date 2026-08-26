@@ -102,6 +102,73 @@ export function useUpdateOrderStatus() {
   });
 }
 
+// ─── Add item (POST /orders/:id/items) ────────────────────────
+
+export function useAddOrderItem() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      orderId,
+      productId,
+      qty,
+    }: {
+      orderId: number;
+      productId: number;
+      qty: number;
+    }) => {
+      const data = (await api.post<OrderResponse>(`/orders/${orderId}/items`, {
+        productId,
+        qty,
+      })) as OrderResponse;
+      return data.order;
+    },
+    onSuccess: (_order: PublicOrder) => {
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+      toast.success('Item added to order');
+    },
+    onError: (error) => toast.apiError(error),
+  });
+}
+
+// ─── Remove item (DELETE /orders/:id/items/:itemId) ────────────
+
+export function useRemoveOrderItem() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ orderId, itemId }: { orderId: number; itemId: number }) => {
+      const data = (await api.delete<OrderResponse>(
+        `/orders/${orderId}/items/${itemId}`,
+      )) as OrderResponse;
+      return data.order;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+      toast.success('Item removed from order');
+    },
+    onError: (error) => toast.apiError(error),
+  });
+}
+
+// ─── Cancel order (DELETE /orders/:id) ──────────────────────────
+
+export function useCancelOrder() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, note }: { id: number; note?: string }) => {
+      const data = (await api.delete<OrderResponse>(`/orders/${id}`, {
+        data: { ...(note ? { note } : {}) },
+      })) as OrderResponse;
+      return data.order;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      toast.success('Order cancelled');
+    },
+    onError: (error) => toast.apiError(error),
+  });
+}
+
 // ─── Pending list (GET /orders/pending) ────────────────────────
 
 export interface PendingOrdersQuery {

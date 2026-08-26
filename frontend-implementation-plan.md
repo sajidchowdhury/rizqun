@@ -1818,9 +1818,9 @@ Phase 3 — Order Building
 Phase 4 — Order Operations
   ✓ 4.1  Order detail modal/page
   ✓ 4.2  Vendor groups + WhatsApp send
-  ☐ 4.3  Status update workflow
-  ☐ 4.4  Add/remove items mid-flight
-  ☐ 4.5  Cancel order + audit log
+  ✓ 4.3  Status update workflow
+  ✓ 4.4  Add/remove items mid-flight
+  ✓ 4.5  Cancel order + audit log
 
 Phase 5 — Done List & History
   ☐ 5.1  Done list with month filter + search

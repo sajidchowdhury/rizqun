@@ -1,6 +1,16 @@
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Copy, Package, Phone, User } from 'lucide-react';
+import {
+  ArrowLeft,
+  ChevronDown,
+  Copy,
+  History,
+  Package,
+  Phone,
+  Plus,
+  Trash2,
+  User,
+} from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,8 +25,42 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { useOrder, useOrderAuditLog, useUpdateOrderStatus } from '@/hooks/use-orders';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  useOrder,
+  useOrderAuditLog,
+  useUpdateOrderStatus,
+  useRemoveOrderItem,
+  useCancelOrder,
+} from '@/hooks/use-orders';
 import { VendorGroupsModal } from '@/components/orders/vendor-groups-modal';
+import { AddItemModal } from '@/components/orders/add-item-modal';
 import { formatBDT } from '@/contexts/cart-store';
 import type { OrderStatus } from '@/types/order';
 
@@ -38,7 +82,6 @@ const STATUS_VARIANTS: Record<string, 'secondary' | 'default' | 'destructive' | 
   cancelled: 'destructive',
 };
 
-// Allowed transitions (mirrors backend's isTransitionAllowed matrix)
 const TRANSITIONS: Record<string, OrderStatus[]> = {
   pending: ['waiting_vendor', 'cancelled'],
   waiting_vendor: ['preparing', 'cancelled'],
@@ -48,6 +91,8 @@ const TRANSITIONS: Record<string, OrderStatus[]> = {
   cancelled: [],
 };
 
+const EDITABLE_STATUSES = ['pending', 'waiting_vendor', 'preparing'];
+
 export function OrderDetailPage() {
   const { id } = useParams<{ id: string }>();
   const orderId = Number(id) || 0;
@@ -56,8 +101,14 @@ export function OrderDetailPage() {
   const { data: order, isLoading } = useOrder(orderId);
   const { data: auditLog } = useOrderAuditLog(orderId);
   const updateStatus = useUpdateOrderStatus();
+  const removeItem = useRemoveOrderItem();
+  const cancelOrder = useCancelOrder();
 
   const [vendorGroupsOpen, setVendorGroupsOpen] = useState(false);
+  const [addItemOpen, setAddItemOpen] = useState(false);
+  const [cancelOpen, setCancelOpen] = useState(false);
+  const [cancelNote, setCancelNote] = useState('');
+  const [removeTarget, setRemoveTarget] = useState<{ itemId: number; name: string } | null>(null);
 
   if (isLoading) {
     return (
@@ -77,21 +128,32 @@ export function OrderDetailPage() {
     );
   }
 
+  const isEditable = EDITABLE_STATUSES.includes(order.status);
   const nextTransitions = TRANSITIONS[order.status] ?? [];
   const isTerminal = order.status === 'delivered' || order.status === 'cancelled';
+  const statusTransitions = nextTransitions.filter((s) => s !== 'cancelled');
 
   function handleStatusTransition(status: OrderStatus) {
     updateStatus.mutate({ id: orderId, status });
   }
 
+  function handleCancel() {
+    cancelOrder.mutate(
+      { id: orderId, note: cancelNote.trim() || undefined },
+      { onSuccess: () => setCancelOpen(false) },
+    );
+  }
+
+  function handleRemoveItem() {
+    if (!removeTarget) return;
+    removeItem.mutate(
+      { orderId, itemId: removeTarget.itemId },
+      { onSuccess: () => setRemoveTarget(null) },
+    );
+  }
+
   function copyToClipboard(text: string, _label: string) {
-    navigator.clipboard
-      .writeText(text)
-      .then(() => {
-        // Toast is already handled by the hook for mutations; for copy
-        // we do a quick inline toast
-      })
-      .catch(() => {});
+    navigator.clipboard.writeText(text).catch(() => {});
   }
 
   return (
@@ -106,7 +168,7 @@ export function OrderDetailPage() {
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-semibold tracking-tight font-mono">{order.orderCode}</h1>
+            <h1 className="font-mono text-2xl font-semibold tracking-tight">{order.orderCode}</h1>
             <Badge variant={STATUS_VARIANTS[order.status]}>
               {STATUS_LABELS[order.status] ?? order.status}
             </Badge>
@@ -116,7 +178,7 @@ export function OrderDetailPage() {
             {order.deliveredAt && ` · Delivered ${new Date(order.deliveredAt).toLocaleString()}`}
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button
             variant="outline"
             onClick={() => setVendorGroupsOpen(true)}
@@ -125,34 +187,44 @@ export function OrderDetailPage() {
             <Package className="size-4" />
             Vendor groups
           </Button>
-          {!isTerminal && nextTransitions.length > 0 && (
-            <div className="flex gap-2">
-              {nextTransitions.map((status) => {
-                if (status === 'cancelled') {
-                  return (
-                    <Button
-                      key={status}
-                      variant="destructive"
-                      size="sm"
-                      onClick={() => handleStatusTransition(status)}
-                      disabled={updateStatus.isPending}
-                    >
-                      Cancel order
-                    </Button>
-                  );
-                }
-                return (
-                  <Button
+          {isEditable && (
+            <Button variant="outline" onClick={() => setAddItemOpen(true)}>
+              <Plus className="size-4" />
+              Add item
+            </Button>
+          )}
+          {/* Status transitions */}
+          {!isTerminal && statusTransitions.length > 0 && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button>
+                  Update status
+                  <ChevronDown className="size-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {statusTransitions.map((status) => (
+                  <DropdownMenuItem
                     key={status}
-                    size="sm"
                     onClick={() => handleStatusTransition(status)}
                     disabled={updateStatus.isPending}
                   >
                     → {STATUS_LABELS[status]}
-                  </Button>
-                );
-              })}
-            </div>
+                  </DropdownMenuItem>
+                ))}
+                {nextTransitions.includes('cancelled' as OrderStatus) && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onClick={() => setCancelOpen(true)}
+                      className="text-destructive focus:text-destructive"
+                    >
+                      Cancel order
+                    </DropdownMenuItem>
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
           )}
         </div>
       </div>
@@ -196,7 +268,15 @@ export function OrderDetailPage() {
           {/* Items table */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Items ({order.items.length})</CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base">Items ({order.items.length})</CardTitle>
+                {isEditable && (
+                  <Button variant="ghost" size="sm" onClick={() => setAddItemOpen(true)}>
+                    <Plus className="size-4" />
+                    Add
+                  </Button>
+                )}
+              </div>
             </CardHeader>
             <CardContent>
               <Table>
@@ -206,6 +286,7 @@ export function OrderDetailPage() {
                     <TableHead className="text-right">Qty</TableHead>
                     <TableHead className="text-right">Price</TableHead>
                     <TableHead className="text-right">Total</TableHead>
+                    {isEditable && <TableHead className="text-right">Actions</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -228,6 +309,21 @@ export function OrderDetailPage() {
                       <TableCell className="text-right font-mono font-medium">
                         {formatBDT(Number(item.lineTotal))}
                       </TableCell>
+                      {isEditable && (
+                        <TableCell className="text-right">
+                          <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            onClick={() =>
+                              setRemoveTarget({ itemId: item.id, name: item.productNameSnapshot })
+                            }
+                            className="text-destructive hover:text-destructive"
+                            aria-label={`Remove ${item.productNameSnapshot}`}
+                          >
+                            <Trash2 className="size-3.5" />
+                          </Button>
+                        </TableCell>
+                      )}
                     </TableRow>
                   ))}
                 </TableBody>
@@ -258,14 +354,16 @@ export function OrderDetailPage() {
         {/* Right: Status timeline */}
         <Card className="sticky top-20 h-fit">
           <CardHeader>
-            <CardTitle className="text-base">Status timeline</CardTitle>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <History className="size-4" />
+              Status timeline
+            </CardTitle>
           </CardHeader>
           <CardContent>
             {auditLog ? (
-              <div className="space-y-3">
+              <div className="space-y-0">
                 {auditLog.entries.map((entry, i) => (
                   <div key={entry.id} className="flex gap-3">
-                    {/* Timeline dot + line */}
                     <div className="flex flex-col items-center">
                       <div
                         className={`size-2.5 rounded-full ${
@@ -277,11 +375,10 @@ export function OrderDetailPage() {
                         }`}
                       />
                       {i < auditLog.entries.length - 1 && (
-                        <div className="mt-1 h-full w-px flex-1 bg-border" />
+                        <div className="mt-1 w-px flex-1 bg-border" style={{ minHeight: '2rem' }} />
                       )}
                     </div>
-                    {/* Entry content */}
-                    <div className="flex-1 pb-3">
+                    <div className="flex-1 pb-4">
                       <div className="text-sm font-medium">
                         {entry.fromStatus
                           ? `${STATUS_LABELS[entry.fromStatus] ?? entry.fromStatus} → ${STATUS_LABELS[entry.toStatus] ?? entry.toStatus}`
@@ -304,13 +401,66 @@ export function OrderDetailPage() {
         </Card>
       </div>
 
-      {/* Vendor groups modal */}
+      {/* Modals */}
       <VendorGroupsModal
         orderId={orderId}
         orderCode={order.orderCode}
         open={vendorGroupsOpen}
         onOpenChange={setVendorGroupsOpen}
       />
+      <AddItemModal orderId={orderId} open={addItemOpen} onOpenChange={setAddItemOpen} />
+
+      {/* Cancel dialog */}
+      <Dialog open={cancelOpen} onOpenChange={setCancelOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Cancel order {order.orderCode}?</DialogTitle>
+            <DialogDescription>
+              This will set the order status to "cancelled". The order remains in the system for
+              audit purposes but can no longer be modified.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-2">
+            <Label htmlFor="cancel-note">Reason (optional)</Label>
+            <Input
+              id="cancel-note"
+              value={cancelNote}
+              onChange={(e) => setCancelNote(e.target.value)}
+              placeholder="e.g. Customer changed mind"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCancelOpen(false)}>
+              Keep order
+            </Button>
+            <Button variant="destructive" onClick={handleCancel} disabled={cancelOrder.isPending}>
+              {cancelOrder.isPending ? 'Cancelling…' : 'Cancel order'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Remove item confirmation */}
+      <AlertDialog open={!!removeTarget} onOpenChange={(open) => !open && setRemoveTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove "{removeTarget?.name}"?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will remove the item from the order and recompute the subtotal + total.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={removeItem.isPending}>Keep item</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleRemoveItem}
+              disabled={removeItem.isPending}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {removeItem.isPending ? 'Removing…' : 'Remove'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
