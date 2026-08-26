@@ -14,12 +14,17 @@ import {
   listDone,
   generateRatingLinkHandler,
 } from './orders.controller';
+import { getForm as getRatingForm } from '../ratings/ratings.controller';
 import { asyncHandler } from '../../utils/asyncHandler';
 import { authenticate } from '../../middlewares/auth.middleware';
 
 const router = Router();
 
-// All order routes require authentication
+// PUBLIC route — no auth required (customer rating form)
+// Must be declared BEFORE router.use(authenticate)
+router.get('/rating-form/:token', asyncHandler(getRatingForm));
+
+// All other order routes require authentication
 router.use(authenticate);
 
 // POST /orders — finalize the cart into a saved order

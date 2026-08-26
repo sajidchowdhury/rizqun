@@ -157,6 +157,8 @@ unset DATABASE_URL && npx tsx scripts/db-smoke-test.ts
 | GET | `/dashboard/avg-time-per-day?days=30` | any authed (scoped) | Daily avg total time in minutes (null-filled, ready for line chart) |
 | GET | `/dashboard/category-breakdown?month=2026-08` | any authed (scoped) | Order count per category (COUNT DISTINCT, ready for donut chart) |
 | POST | `/orders/:id/rating-link` | any authed (scoped) | Generate unique rating URL for delivered order (32-char hex token, idempotent) |
+| GET | `/orders/rating-form/:token` | **public** | Rating form data — returns `orderCode` + `customerName` only (no sensitive data) |
+| POST | `/ratings` | **public** (rate-limited) | Submit rating (1-5 scores + comment) — token consumed on submit (single-use) |
 
 ### Middlewares (in `src/middlewares/`)
 

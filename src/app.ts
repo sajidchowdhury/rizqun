@@ -11,6 +11,7 @@ import vendorRoutes from './modules/vendors/vendors.routes';
 import productRoutes from './modules/products/products.routes';
 import orderRoutes from './modules/orders/orders.routes';
 import dashboardRoutes from './modules/dashboard/dashboard.routes';
+import ratingRoutes from './modules/ratings/ratings.routes';
 
 const app = express();
 
@@ -41,6 +42,7 @@ app.use('/auth', authRoutes);
 app.use('/vendors', vendorRoutes);
 app.use('/products', productRoutes);
 app.use('/orders', orderRoutes);
+app.use('/ratings', ratingRoutes);
 app.use('/dashboard', dashboardRoutes);
 
 // ─── Health check ──────────────────────────────────────────────
