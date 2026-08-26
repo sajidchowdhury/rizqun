@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 // ─── Create category (POST /categories) ──────────────────────
 
-export const createCategorySchema = z.object({
+export const createCategorySchema = z.strictObject({
   slug: z
     .string()
     .trim()

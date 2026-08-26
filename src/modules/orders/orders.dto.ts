@@ -8,14 +8,14 @@ const bangladeshiPhoneRegex = /^(\+?880|0)1[3-9]\d{8}$/;
 // which creates a real Product row, so by the time finalize is called every
 // cart item has a productId.
 
-export const cartItemSchema = z.object({
+export const cartItemSchema = z.strictObject({
   productId: z.number().int().positive('productId must be a positive integer'),
   qty: z.number().int().positive('qty must be at least 1').max(9999),
 });
 
 // ─── Finalize order (POST /orders) ─────────────────────────────
 
-export const finalizeOrderSchema = z.object({
+export const finalizeOrderSchema = z.strictObject({
   customerName: z.string().trim().min(2, 'Customer name must be at least 2 characters').max(200),
   customerPhone: z
     .string()
@@ -140,7 +140,7 @@ export function isOrderEditable(status: string): boolean {
   return EDITABLE_STATUSES.includes(status);
 }
 
-export const updateOrderStatusSchema = z.object({
+export const updateOrderStatusSchema = z.strictObject({
   status: z.enum(['pending', 'waiting_vendor', 'preparing', 'picked_up', 'delivered', 'cancelled']),
   // Optional note for the audit log (e.g. 'Vendor confirmed', 'Customer cancelled')
   note: z.string().trim().max(500).optional(),
@@ -285,7 +285,7 @@ export type UpdateOrderInput = z.infer<typeof updateOrderSchema>;
 // Editable window: status IN (pending, waiting_vendor, preparing)
 // Once picked_up → 409 "Order is locked"
 
-export const addOrderItemSchema = z.object({
+export const addOrderItemSchema = z.strictObject({
   productId: z.number().int().positive('productId must be a positive integer'),
   qty: z.number().int().positive('qty must be at least 1').max(9999),
 });

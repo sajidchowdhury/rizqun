@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 // ─── Create ─────────────────────────────────────────────────────
 
-export const createProductSchema = z.object({
+export const createProductSchema = z.strictObject({
   name: z
     .string()
     .trim()
@@ -97,7 +97,7 @@ export interface SearchResultRow {
 // instead of `categoryId` (operators don't know internal IDs) and auto-generates
 // a SKU if one is not provided.
 
-export const quickAddProductSchema = z.object({
+export const quickAddProductSchema = z.strictObject({
   name: z
     .string()
     .trim()

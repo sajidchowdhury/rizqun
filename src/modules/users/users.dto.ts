@@ -5,7 +5,7 @@ const bangladeshiPhoneRegex = /^(\+?880|0)1[3-9]\d{8}$/;
 
 // ─── Create user (POST /users) ────────────────────────────────
 
-export const createUserSchema = z.object({
+export const createUserSchema = z.strictObject({
   name: z.string().trim().min(2, 'Name must be at least 2 characters').max(200),
   email: z.string().trim().toLowerCase().email('Invalid email'),
   phone: z.string().trim().regex(bangladeshiPhoneRegex, 'Phone must be a valid Bangladeshi number'),

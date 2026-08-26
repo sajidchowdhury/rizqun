@@ -10,7 +10,7 @@ const whatsappNumberRegex = /^\d{10,15}$/;
 
 // ─── Create ──────────────────────────────────────────────────────
 
-export const createVendorSchema = z.object({
+export const createVendorSchema = z.strictObject({
   name: z.string().trim().min(2, 'Name must be at least 2 characters').max(200),
   phone: z
     .string()

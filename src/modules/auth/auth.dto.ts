@@ -16,7 +16,7 @@ export const phoneSchema = z
 // ─── Register ──────────────────────────────────────────────────
 // Used by POST /auth/register (super_admin only — enforced in Session 1.3).
 
-export const registerSchema = z.object({
+export const registerSchema = z.strictObject({
   name: z.string().trim().min(2, 'Name must be at least 2 characters').max(100),
   email: z.string().trim().toLowerCase().email('Invalid email'),
   phone: phoneSchema,
@@ -29,7 +29,7 @@ export type RegisterInput = z.infer<typeof registerSchema>;
 
 // ─── Login ──────────────────────────────────────────────────────
 
-export const loginSchema = z.object({
+export const loginSchema = z.strictObject({
   email: z.string().trim().toLowerCase().email('Invalid email'),
   password: z.string().min(1, 'Password is required'),
 });

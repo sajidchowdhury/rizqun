@@ -20,7 +20,7 @@ export interface RatingFormData {
 //   2. The order's ratingToken is cleared to NULL (single-use — URL stops working)
 //   3. A second submission with the same token → 404 (token no longer exists)
 
-export const submitRatingSchema = z.object({
+export const submitRatingSchema = z.strictObject({
   token: z.string().trim().min(1, 'Token is required').max(64),
   overall: z.number().int().min(1, 'overall must be 1-5').max(5, 'overall must be 1-5'),
   speed: z.number().int().min(1, 'speed must be 1-5').max(5, 'speed must be 1-5'),
