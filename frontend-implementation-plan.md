@@ -236,6 +236,27 @@ rizqun-ui/
 
 ---
 
+### 0.11 Progress notes (live log)
+
+A short record of what was actually built, deviations from the plan, and
+gotchas hit. Updated after each session is committed.
+
+#### Phase 0 — Bootstrap (3/3 done, 4 commits)
+
+| Session | Commit | Notes |
+|---------|--------|-------|
+| 0.1 | `ed3b98d` | Scaffold moved from standalone `rizqun-ui` repo to `ui/` subfolder of the main `rizqun` repo (per user request — single-deployable-unit requirement). Backend `.gitignore` `/.vscode/` rule scoped to root so `ui/.vscode/{extensions,settings}.json` can be committed. |
+| 0.2 | `ab6186b` | shadcn CLI `init` defaulting to `base-nova` style; manually overrode to `new-york` style + `tw-animate-css` (replaces `tailwindcss-animate` which is Tailwind v3 only). shadcn writes imports as literal `src/lib/utils` instead of `@/lib/utils` — fixed in one pass after init. ESLint relaxed `react-refresh/only-export-components` for `src/components/ui/**` and `src/contexts/**` (intentional pattern in shadcn primitives + context providers). React 19 hooks rule flags `setState` inside `useEffect` — refactored `ThemeProvider` to compute `resolvedTheme` via `useMemo` and split `useTheme` hook into its own file. |
+| 0.3 | `7d56f70` | All 13 routes smoke-tested (return 200 in both `vite dev` and `vite preview`, confirming SPA fallback works for deep links like `/orders/123` and `/rating/<token>`). `PublicLayout` split into its own file to satisfy `react-refresh/only-export-components` rule in `routes/index.tsx`. TODO markers left in `routes/index.tsx` for Phase 1.4 to wrap `AppShell` in `ProtectedRoute` and gate `/categories` + `/users` with `AdminRoute`. |
+
+#### Phase 1 — API & Auth Foundation (1/4 done, 1 commit)
+
+| Session | Commit | Notes |
+|---------|--------|-------|
+| 1.1 | (this commit) | `axios` + `@tanstack/react-query` v5 installed. The 401 refresh interceptor uses `fetch()` for the `/auth/refresh` call instead of `api.post` to avoid (a) re-triggering the request interceptor with a stale token, (b) infinite recursion if refresh itself 401s, and (c) a typing mismatch with the axios module augmentation (the augmentation changes `axios.post<T>` to return `Promise<T>` instead of `Promise<AxiosResponse<T>>` — fine for the `api` instance but wrong for raw `axios` calls). `tokenStore` is a module-level singleton (not React state) so the request interceptor can read the token synchronously. `AuthProvider` (Phase 1.2) will subscribe to `tokenStore` and persist to `sessionStorage` on login/logout. Smoke-tested end-to-end against the running backend: 4/4 tests pass (health unwrap, 401 error path, login + cookie, authenticated GET with attached token). Temporary smoke-test page (`_api-smoke-test.tsx`) deleted before commit; dashboard placeholder restored. |
+
+---
+
 ## Phase 0 — Project Bootstrap
 
 **Goal**: an empty React + Vite + TS + Tailwind + shadcn/ui app boots on
@@ -1724,12 +1745,12 @@ Use this table to track progress. Mark each session `☐` (todo), `⏳` (in prog
 
 ```
 Phase 0 — Bootstrap
-  ☐ 0.1  Scaffold Vite + React + TS + Tailwind v4
-  ☐ 0.2  Install shadcn/ui + theme tokens
-  ☐ 0.3  Routing shell + layout skeleton
+  ✓ 0.1  Scaffold Vite + React + TS + Tailwind v4
+  ✓ 0.2  Install shadcn/ui + theme tokens
+  ✓ 0.3  Routing shell + layout skeleton
 
 Phase 1 — API & Auth Foundation
-  ☐ 1.1  API client (axios + interceptors)
+  ✓ 1.1  API client (axios + interceptors)
   ☐ 1.2  Auth context + token storage
   ☐ 1.3  Login page
   ☐ 1.4  Protected routes + role-based UI
