@@ -892,7 +892,7 @@ cancelled    → (terminal)
 | 11. Deployment | 11.1, 11.2, 11.3, 11.4 | ☐ |
 
 **Total: 38 sessions across 12 phases.**
-**Completed: 15 / 38 sessions**
+**Completed: 16 / 38 sessions**
 
 ### Session Log
 
@@ -913,5 +913,6 @@ cancelled    → (terminal)
 | 3.2 — Finalize Order Endpoint | `8788bbf` | `POST /orders` — batch product fetch, category-access validation, snapshots, single transaction (order + items + status_log), orderCode `ORD-YYYY-NNNNN`; 11-test smoke script, snapshot integrity confirmed |
 | 3.3 — Get Order + List Orders | `719d5d6` | `GET /orders` (paginated, filtered, scoped by role) + `GET /orders/:id` (full detail, 404-not-own-leak); 13-test smoke script |
 | 4.1 — Status Update + Status Log | `c9b5a58` | `PATCH /orders/:id/status` with ALLOWED_TRANSITIONS matrix, audit trail, deliveredAt; idempotent same-status, 404-not-own-leak; 13-test smoke script |
+| 4.2 — Pending List Endpoint | `7a82679` | `GET /orders/pending` — only in-flight statuses, oldest-first sort, `minutesSinceCreated` field, role-scoped; 12-test smoke script |
 
 After each session, paste the session's Confirmation Checkpoint back to the owner. Only after explicit "✅ confirmed" do we start the next session.
