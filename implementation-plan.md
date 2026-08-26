@@ -883,8 +883,8 @@ cancelled    → (terminal)
 | 2. Catalog | 2.1, 2.2, 2.3, 2.4, 2.5 | ✅ |
 | 3. Orders | 3.1, 3.2, 3.3 | ✅ |
 | 4. Status | 4.1, 4.2, 4.3 | ✅ |
-| 5. WhatsApp | 5.1, 5.2 | 🔄 next |
-| 6. Edit Pending | 6.1, 6.2, 6.3 | ☐ |
+| 5. WhatsApp | 5.1, 5.2 | ✅ |
+| 6. Edit Pending | 6.1, 6.2, 6.3 | 🔄 next |
 | 7. Done & Dashboard | 7.1, 7.2, 7.3 | ☐ |
 | 8. Rating | 8.1, 8.2 | ☐ |
 | 9. Super Admin | 9.1, 9.2 | ☐ |
@@ -892,7 +892,7 @@ cancelled    → (terminal)
 | 11. Deployment | 11.1, 11.2, 11.3, 11.4 | ☐ |
 
 **Total: 38 sessions across 12 phases.**
-**Completed: 18 / 38 sessions**
+**Completed: 19 / 38 sessions**
 
 ### Session Log
 
@@ -916,5 +916,6 @@ cancelled    → (terminal)
 | 4.2 — Pending List Endpoint | `7a82679` | `GET /orders/pending` — only in-flight statuses, oldest-first sort, `minutesSinceCreated` field, role-scoped; 12-test smoke script |
 | 4.3 — Cancel Order (Soft Delete) | `0023194` | `DELETE /orders/:id` — cancel only from editable statuses, audit log with note, 409 on locked/already-cancelled, soft-delete preserves all rows; 13-test smoke script |
 | 5.1 — Vendor-wise WhatsApp Logic | `b8e8cc9` | `GET /orders/:id/vendor-groups` — items grouped by vendor, `copyText` (paste-ready multi-line) + `whatsappUrl` (wa.me deep link), `*NEW*` badge for added_after_finalize items; 12-test smoke script |
+| 5.2 — Update Customer Info | `c966d1d` | `PATCH /orders/:id` — partial update (name/phone/address/deliveryFee), editable-status check, total recompute on deliveryFee change, route ordering before `/:id/status`; 19-test smoke script |
 
 After each session, paste the session's Confirmation Checkpoint back to the owner. Only after explicit "✅ confirmed" do we start the next session.
