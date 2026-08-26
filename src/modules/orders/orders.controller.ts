@@ -22,6 +22,7 @@ import {
   removeOrderItem,
   getOrderAuditLog,
   listDoneOrders,
+  generateRatingLink,
 } from './orders.service';
 import { sendSuccess } from '../../utils/response';
 import { AppError } from '../../utils/AppError';
@@ -290,4 +291,23 @@ export async function listDone(req: Request, res: Response): Promise<void> {
 
   const result = await listDoneOrders(parsed.data, { userId, role });
   sendSuccess(res, result, 'Done orders retrieved');
+}
+
+// ─── POST /orders/:id/rating-link ─────────────────────────────
+// Generates a unique rating URL for a delivered order.
+// Idempotent: returns existing token if one already exists.
+export async function generateRatingLinkHandler(req: Request, res: Response): Promise<void> {
+  const id = Number(req.params.id);
+  if (Number.isNaN(id) || id <= 0) {
+    throw new AppError(400, 'Invalid order id');
+  }
+
+  const userId = req.user?.userId;
+  const role = req.user?.role;
+  if (!userId || !role) {
+    throw new AppError(401, 'Not authenticated');
+  }
+
+  const result = await generateRatingLink(id, { userId, role });
+  sendSuccess(res, result, 'Rating link generated');
 }

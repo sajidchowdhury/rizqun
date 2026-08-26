@@ -12,6 +12,7 @@ import {
   removeItem,
   getAuditLog,
   listDone,
+  generateRatingLinkHandler,
 } from './orders.controller';
 import { asyncHandler } from '../../utils/asyncHandler';
 import { authenticate } from '../../middlewares/auth.middleware';
@@ -49,6 +50,9 @@ router.get('/:id/vendor-groups', asyncHandler(getVendorGroups));
 
 // GET /orders/:id/audit-log — append-only status_log entries (oldest-first)
 router.get('/:id/audit-log', asyncHandler(getAuditLog));
+
+// POST /orders/:id/rating-link — generate rating URL for delivered order
+router.post('/:id/rating-link', asyncHandler(generateRatingLinkHandler));
 
 // DELETE /orders/:id — cancel (soft-delete) an order
 router.delete('/:id', asyncHandler(cancel));

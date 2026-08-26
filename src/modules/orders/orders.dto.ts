@@ -366,3 +366,17 @@ export interface PaginatedDoneOrders {
     totalPages: number;
   };
 }
+
+// ─── Rating link (POST /orders/:id/rating-link) ────────────────
+// Generates a unique, single-use token for the customer rating form.
+// The token is stored on the order row and used in the public URL:
+//   https://yourapp.com/rate/<token>
+//
+// Idempotent: if a token already exists, returns the existing URL.
+// Once the rating is submitted (Session 8.2), the token is cleared to NULL.
+
+export interface RatingLinkResult {
+  orderCode: string;
+  ratingToken: string;
+  url: string;
+}

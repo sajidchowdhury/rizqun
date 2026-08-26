@@ -1,5 +1,7 @@
 import { Prisma, type OrderStatus } from '@prisma/client';
+import crypto from 'node:crypto';
 import { prisma } from '../../config/prisma';
+import { env } from '../../config/env';
 import { AppError } from '../../utils/AppError';
 import { generateUniqueOrderCode } from '../../utils/orderCode';
 import { buildVendorCopyText, buildWhatsappUrl } from '../../utils/whatsapp';
@@ -25,6 +27,7 @@ import type {
   ListDoneOrdersQuery,
   PaginatedDoneOrders,
   DoneOrderListItem,
+  RatingLinkResult,
 } from './orders.dto';
 
 // ─── Helpers ───────────────────────────────────────────────────
@@ -1246,5 +1249,88 @@ export async function listDoneOrders(
       total,
       totalPages: Math.ceil(total / query.limit),
     },
+  };
+}
+
+// ─── Generate rating link (POST /orders/:id/rating-link) ──────
+//
+// Generates a 32-char hex token (128 bits of entropy) via crypto.randomBytes,
+// saves it to orders.rating_token, and returns the public URL.
+//
+// Rules:
+//   1. Order must exist (404 if not)
+//   2. Scope check (404 for non-own, no leak)
+//   3. Order must be 'delivered' (400 if not — can't rate undelivered orders)
+//   4. If token already exists → return existing URL (idempotent — don't regenerate)
+//   5. If a rating has already been submitted (token was cleared to NULL) → 409
+//      'Rating already submitted' (the token was consumed)
+
+export async function generateRatingLink(
+  orderId: number,
+  ctx: ListContext,
+): Promise<RatingLinkResult> {
+  const order = await prisma.order.findUnique({
+    where: { id: orderId },
+    select: {
+      id: true,
+      orderCode: true,
+      status: true,
+      userId: true,
+      ratingToken: true,
+    },
+  });
+
+  if (!order) {
+    throw new AppError(404, 'Order not found');
+  }
+
+  // Scope check
+  if (ctx.role !== 'super_admin' && order.userId !== ctx.userId) {
+    throw new AppError(404, 'Order not found');
+  }
+
+  // Must be delivered
+  if (order.status !== 'delivered') {
+    throw new AppError(
+      400,
+      `Cannot generate rating link for order in status '${order.status}'. Only delivered orders can be rated.`,
+    );
+  }
+
+  // Check if a rating has already been submitted
+  // When a rating is submitted (Session 8.2), the token is cleared to NULL.
+  // So if token is NULL AND a rating exists, the rating was already submitted.
+  // But if token is NULL AND no rating exists, we need to generate a new token.
+  // We can check this by looking at the rating relation.
+  const rating = await prisma.rating.findUnique({
+    where: { orderId: order.id },
+    select: { id: true },
+  });
+
+  if (rating) {
+    throw new AppError(409, 'Rating has already been submitted for this order');
+  }
+
+  // Idempotent: if token already exists, return it
+  if (order.ratingToken) {
+    return {
+      orderCode: order.orderCode,
+      ratingToken: order.ratingToken,
+      url: `${env.appBaseUrl}/rate/${order.ratingToken}`,
+    };
+  }
+
+  // Generate new token: 16 random bytes → 32 hex chars
+  const token = crypto.randomBytes(16).toString('hex');
+
+  await prisma.order.update({
+    where: { id: order.id },
+    data: { ratingToken: token },
+  });
+
+  return {
+    orderCode: order.orderCode,
+    ratingToken: token,
+    url: `${env.appBaseUrl}/rate/${token}`,
   };
 }
