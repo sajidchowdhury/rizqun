@@ -8,6 +8,7 @@ import {
   Package,
   Phone,
   Plus,
+  Star,
   Trash2,
   User,
 } from 'lucide-react';
@@ -61,6 +62,7 @@ import {
 } from '@/hooks/use-orders';
 import { VendorGroupsModal } from '@/components/orders/vendor-groups-modal';
 import { AddItemModal } from '@/components/orders/add-item-modal';
+import { RatingLinkDialog } from '@/components/ratings/rating-link-dialog';
 import { formatBDT } from '@/contexts/cart-store';
 import type { OrderStatus } from '@/types/order';
 
@@ -106,6 +108,7 @@ export function OrderDetailPage() {
 
   const [vendorGroupsOpen, setVendorGroupsOpen] = useState(false);
   const [addItemOpen, setAddItemOpen] = useState(false);
+  const [ratingLinkOpen, setRatingLinkOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [cancelNote, setCancelNote] = useState('');
   const [removeTarget, setRemoveTarget] = useState<{ itemId: number; name: string } | null>(null);
@@ -187,6 +190,12 @@ export function OrderDetailPage() {
             <Package className="size-4" />
             Vendor groups
           </Button>
+          {order.status === 'delivered' && (
+            <Button variant="outline" onClick={() => setRatingLinkOpen(true)}>
+              <Star className="size-4" />
+              Send rating link
+            </Button>
+          )}
           {isEditable && (
             <Button variant="outline" onClick={() => setAddItemOpen(true)}>
               <Plus className="size-4" />
@@ -461,6 +470,17 @@ export function OrderDetailPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Rating link dialog */}
+      {order.status === 'delivered' && (
+        <RatingLinkDialog
+          orderId={orderId}
+          orderCode={order.orderCode}
+          customerPhone={order.customerPhone}
+          open={ratingLinkOpen}
+          onOpenChange={setRatingLinkOpen}
+        />
+      )}
     </div>
   );
 }
