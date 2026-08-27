@@ -393,18 +393,20 @@ function ProductBrowseCard({
         inactive && 'opacity-70',
       )}
     >
-      {/* Hero image (4:3). The img is absolutely positioned so it can't push
-          the wrapper's height — the wrapper's `aspect-ratio` is the only thing
-          that determines its size. Without this, Tailwind v4's preflight
-          `img { height: auto }` + flex column would let the image's intrinsic
-          height drive the card. */}
-      <div className="relative aspect-[4/3] w-full overflow-hidden bg-muted">
+      {/* Hero image (4:3). Bulletproof layout — same approach as the order
+          page card (see product-catalog-card.tsx for the full rationale).
+          Inline style + Tailwind utilities + absolute positioning + max-h-full. */}
+      <div
+        className="relative aspect-[4/3] w-full overflow-hidden bg-muted"
+        style={{ aspectRatio: '4 / 3', overflow: 'hidden' }}
+      >
         {url ? (
           <img
             src={url}
             alt={product.name}
             loading="lazy"
-            className="absolute inset-0 size-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
+            className="absolute inset-0 size-full max-h-full max-w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
+            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
             onError={(e) => {
               const target = e.currentTarget;
               target.style.display = 'none';
