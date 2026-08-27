@@ -81,6 +81,12 @@ app.use('/users', userRoutes);
 app.use('/categories', categoryRoutes);
 app.use('/dashboard', dashboardRoutes);
 
+// ─── Static files (product images, etc.) ──────────────────────
+// Images are stored in public/uploads/products/ and served at
+// /uploads/products/xxx.jpg. In production, Nginx serves this path
+// directly for better performance.
+app.use('/uploads', express.static('public/uploads'));
+
 // ─── Health check ──────────────────────────────────────────────
 app.get('/health', async (_req: Request, res: Response) => {
   let dbStatus: 'ok' | 'error' = 'ok';

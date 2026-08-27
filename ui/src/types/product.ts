@@ -13,6 +13,11 @@ export interface Product {
   vendorId: number;
   unit: string;
   isActive: boolean;
+  imageUrl: string | null;
+  originalPrice: string | null;
+  discountActive: boolean;
+  genericName: string | null;
+  isEssential: boolean;
   createdAt: string;
   updatedAt: string;
   /** Included when the request asks for `include: { category, vendor }`. */
@@ -73,6 +78,10 @@ export interface ProductSearchResult {
   categoryId: number;
   categorySlug: string;
   categoryName: string;
+  imageUrl: string | null;
+  originalPrice: string | null;
+  discountActive: boolean;
+  genericName: string | null;
   rank: number;
   source: 'fts' | 'ilike';
 }

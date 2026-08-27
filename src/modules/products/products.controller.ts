@@ -14,6 +14,8 @@ import {
   deleteProduct,
   searchProducts,
   quickAddProduct,
+  getProductRecommendations,
+  getEssentialProducts,
 } from './products.service';
 import { sendSuccess } from '../../utils/response';
 import { AppError } from '../../utils/AppError';
@@ -113,4 +115,26 @@ export async function quickAdd(req: Request, res: Response): Promise<void> {
 
   const product = await quickAddProduct(parsed.data, userId, userCategoryAccess);
   sendSuccess(res, { product }, 'Product created via quick-add', 201);
+}
+
+// ─── GET /products/:id/recommendations ─────────────────────────
+// Returns products frequently bought together with the given product.
+export async function recommendations(req: Request, res: Response): Promise<void> {
+  const id = Number(req.params.id);
+  if (Number.isNaN(id) || id <= 0) {
+    throw new AppError(400, 'Invalid product id');
+  }
+
+  const limit = Math.min(Number(req.query.limit) || 5, 20);
+  const products = await getProductRecommendations(id, limit);
+  sendSuccess(res, { data: products }, 'Recommendations retrieved');
+}
+
+// ─── GET /products/essentials ──────────────────────────────────
+// Returns products flagged as isEssential — curated household necessities
+// for push-sale suggestions.
+export async function essentials(_req: Request, res: Response): Promise<void> {
+  const limit = Math.min(10, 20);
+  const products = await getEssentialProducts(limit);
+  sendSuccess(res, { data: products }, 'Essential products retrieved');
 }

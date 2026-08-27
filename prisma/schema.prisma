@@ -119,6 +119,13 @@ model Product {
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
+  // ─── New fields for bulk import, images, discounts, recommendations ──
+  imageUrl       String?  @map("image_url")           // local path: /uploads/products/xxx.jpg
+  originalPrice  Decimal? @db.Decimal(10, 2) @map("original_price")  // pre-discount price (null = no discount)
+  discountActive Boolean  @default(false) @map("discount_active")   // toggle discount on/off
+  genericName    String?  @map("generic_name")       // for medicine: e.g. "Cefepime"
+  isEssential    Boolean  @default(false) @map("is_essential")      // household essentials flag for push-sale
+
   category Category @relation(fields: [categoryId], references: [id], onDelete: Restrict)
   vendor   Vendor   @relation(fields: [vendorId], references: [id], onDelete: Restrict)
 
@@ -127,6 +134,7 @@ model Product {
   @@index([categoryId])
   @@index([vendorId])
   @@index([isActive])
+  @@index([isEssential])
   @@map("products")
 }
 

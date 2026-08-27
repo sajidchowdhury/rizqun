@@ -129,3 +129,34 @@ export function useQuickAddProduct() {
     onError: (error) => toast.apiError(error),
   });
 }
+
+// ─── Recommendations (GET /products/:id/recommendations) ───────
+
+export function useProductRecommendations(productId: number, enabled = true) {
+  return useQuery({
+    queryKey: ['products', 'recommendations', productId] as const,
+    queryFn: async () => {
+      const data = (await api.get<{ data: Product[] }>(
+        `/products/${productId}/recommendations?limit=5`,
+      )) as { data: Product[] };
+      return data.data;
+    },
+    enabled: enabled && productId > 0,
+    staleTime: 60_000,
+  });
+}
+
+// ─── Essentials (GET /products/essentials) ──────────────────────
+
+export function useEssentialProducts() {
+  return useQuery({
+    queryKey: ['products', 'essentials'] as const,
+    queryFn: async () => {
+      const data = (await api.get<{ data: Product[] }>('/products/essentials')) as {
+        data: Product[];
+      };
+      return data.data;
+    },
+    staleTime: 5 * 60_000,
+  });
+}

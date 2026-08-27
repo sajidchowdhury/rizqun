@@ -21,6 +21,11 @@ export interface PublicProduct {
   vendorId: number;
   unit: string;
   isActive: boolean;
+  imageUrl: string | null;
+  originalPrice: string | null;
+  discountActive: boolean;
+  genericName: string | null;
+  isEssential: boolean;
   createdAt: Date;
   updatedAt: Date;
   category?: { id: number; slug: string; name: string };
@@ -36,6 +41,11 @@ function toPublicProduct(p: {
   vendorId: number;
   unit: string;
   isActive: boolean;
+  imageUrl: string | null;
+  originalPrice: Prisma.Decimal | null;
+  discountActive: boolean;
+  genericName: string | null;
+  isEssential: boolean;
   createdAt: Date;
   updatedAt: Date;
   category?: { id: number; slug: string; name: string } | null;
@@ -55,6 +65,11 @@ function toPublicProduct(p: {
     vendorId: p.vendorId,
     unit: p.unit,
     isActive: p.isActive,
+    imageUrl: p.imageUrl,
+    originalPrice: p.originalPrice ? p.originalPrice.toString() : null,
+    discountActive: p.discountActive,
+    genericName: p.genericName,
+    isEssential: p.isEssential,
     createdAt: p.createdAt,
     updatedAt: p.updatedAt,
     ...(p.category && { category: p.category }),
@@ -383,6 +398,10 @@ async function searchFts(
         p.vendor_id AS "vendorId", v.name AS "vendorName",
         v.whatsapp_number AS "vendorWhatsappNumber",
         p.category_id AS "categoryId", c.slug AS "categorySlug", c.name AS "categoryName",
+        p.image_url AS "imageUrl",
+        p.original_price::text AS "originalPrice",
+        p.discount_active AS "discountActive",
+        p.generic_name AS "genericName",
         ts_rank(p.search_vector, q) AS rank, 'fts' AS source
       FROM products p
       CROSS JOIN to_tsquery('english', ${tsQueryStr}) AS q
@@ -403,6 +422,10 @@ async function searchFts(
       p.vendor_id AS "vendorId", v.name AS "vendorName",
       v.whatsapp_number AS "vendorWhatsappNumber",
       p.category_id AS "categoryId", c.slug AS "categorySlug", c.name AS "categoryName",
+      p.image_url AS "imageUrl",
+      p.original_price::text AS "originalPrice",
+      p.discount_active AS "discountActive",
+      p.generic_name AS "genericName",
       ts_rank(p.search_vector, q) AS rank, 'fts' AS source
     FROM products p
     CROSS JOIN to_tsquery('english', ${tsQueryStr}) AS q
@@ -431,6 +454,10 @@ async function searchIlike(
         p.vendor_id AS "vendorId", v.name AS "vendorName",
         v.whatsapp_number AS "vendorWhatsappNumber",
         p.category_id AS "categoryId", c.slug AS "categorySlug", c.name AS "categoryName",
+        p.image_url AS "imageUrl",
+        p.original_price::text AS "originalPrice",
+        p.discount_active AS "discountActive",
+        p.generic_name AS "genericName",
         0.0::float AS rank, 'ilike' AS source
       FROM products p
       JOIN vendors v   ON v.id = p.vendor_id
@@ -449,6 +476,10 @@ async function searchIlike(
       p.vendor_id AS "vendorId", v.name AS "vendorName",
       v.whatsapp_number AS "vendorWhatsappNumber",
       p.category_id AS "categoryId", c.slug AS "categorySlug", c.name AS "categoryName",
+      p.image_url AS "imageUrl",
+      p.original_price::text AS "originalPrice",
+      p.discount_active AS "discountActive",
+      p.generic_name AS "genericName",
       0.0::float AS rank, 'ilike' AS source
     FROM products p
     JOIN vendors v   ON v.id = p.vendor_id
@@ -542,4 +573,56 @@ export async function quickAddProduct(
   });
 
   return toPublicProduct(product);
+}
+
+// ─── Frequently Bought Together recommendations ───────────────────
+// Returns products that are commonly ordered alongside the given product.
+
+export async function getProductRecommendations(
+  productId: number,
+  limit: number = 5,
+): Promise<PublicProduct[]> {
+  const coOccurring = await prisma.$queryRaw<Array<{ product_id: number; count: bigint }>>`
+    SELECT oi2.product_id, COUNT(*)::bigint AS count
+    FROM order_items oi1
+    JOIN order_items oi2
+      ON oi1.order_id = oi2.order_id
+      AND oi2.product_id != oi1.product_id
+    WHERE oi1.product_id = ${productId}
+      AND oi2.product_id IS NOT NULL
+    GROUP BY oi2.product_id
+    ORDER BY count DESC
+    LIMIT ${limit};
+  `;
+
+  if (coOccurring.length === 0) return [];
+
+  const productIds = coOccurring.map((r) => r.product_id);
+  const products = await prisma.product.findMany({
+    where: { id: { in: productIds }, isActive: true },
+    include: {
+      category: { select: { id: true, slug: true, name: true } },
+      vendor: { select: { id: true, name: true, phone: true, whatsappNumber: true } },
+    },
+  });
+
+  const countMap = new Map(coOccurring.map((r) => [r.product_id, Number(r.count)]));
+  return products
+    .sort((a, b) => (countMap.get(b.id) ?? 0) - (countMap.get(a.id) ?? 0))
+    .map(toPublicProduct);
+}
+
+// ─── Essential products (for push-sale) ──────────────────────────
+
+export async function getEssentialProducts(limit: number = 10): Promise<PublicProduct[]> {
+  const products = await prisma.product.findMany({
+    where: { isEssential: true, isActive: true },
+    include: {
+      category: { select: { id: true, slug: true, name: true } },
+      vendor: { select: { id: true, name: true, phone: true, whatsappNumber: true } },
+    },
+    take: limit,
+    orderBy: { name: 'asc' },
+  });
+  return products.map(toPublicProduct);
 }

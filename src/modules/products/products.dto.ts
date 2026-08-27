@@ -85,6 +85,10 @@ export interface SearchResultRow {
   categoryId: number;
   categorySlug: string;
   categoryName: string;
+  imageUrl: string | null;
+  originalPrice: string | null;
+  discountActive: boolean;
+  genericName: string | null;
   rank: number; // FTS rank (0 for ILIKE fallback rows)
   source: 'fts' | 'ilike'; // which search strategy matched
 }
