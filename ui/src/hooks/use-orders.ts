@@ -150,6 +150,42 @@ export function useRemoveOrderItem() {
   });
 }
 
+// ─── Change item vendor (PATCH /orders/:id/items/:itemId/vendor) ──
+//
+// Phase 4 (2026-08-28): manually override the vendor for an order item.
+// Used by the vendor-groups modal's per-item vendor dropdown.
+
+export function useChangeItemVendor() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      orderId,
+      itemId,
+      vendorId,
+    }: {
+      orderId: number;
+      itemId: number;
+      vendorId: number;
+    }) => {
+      const data = (await api.patch<OrderResponse>(
+        `/orders/${orderId}/items/${itemId}/vendor`,
+        { vendorId },
+      )) as OrderResponse;
+      return data.order;
+    },
+    onSuccess: (_order, variables) => {
+      // Invalidate the order detail + vendor-groups (the groups change
+      // when an item's vendor changes).
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+      queryClient.invalidateQueries({
+        queryKey: ['orders', 'vendor-groups', variables.orderId],
+      });
+      toast.success('Vendor changed');
+    },
+    onError: (error) => toast.apiError(error),
+  });
+}
+
 // ─── Cancel order (DELETE /orders/:id) ──────────────────────────
 
 export function useCancelOrder() {

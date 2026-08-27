@@ -8,6 +8,7 @@ import {
   updateOrderSchema,
   addOrderItemSchema,
   listDoneOrdersQuerySchema,
+  changeItemVendorSchema,
 } from './orders.dto';
 import {
   finalizeOrder,
@@ -23,6 +24,7 @@ import {
   getOrderAuditLog,
   listDoneOrders,
   generateRatingLink,
+  changeItemVendor,
 } from './orders.service';
 import { sendSuccess } from '../../utils/response';
 import { AppError } from '../../utils/AppError';
@@ -310,4 +312,36 @@ export async function generateRatingLinkHandler(req: Request, res: Response): Pr
 
   const result = await generateRatingLink(id, { userId, role });
   sendSuccess(res, result, 'Rating link generated');
+}
+
+// ─── PATCH /orders/:id/items/:itemId/vendor ──────────────────
+//
+// Phase 4 (2026-08-28): manually override the vendor for an order item.
+// The operator picks a different vendor from the alternatives list;
+// the backend updates vendorId + purchasePriceSnapshot + sets
+// vendorChoiceReason = "manual".
+
+export async function changeItemVendorHandler(req: Request, res: Response): Promise<void> {
+  const orderId = Number(req.params.id);
+  const itemId = Number(req.params.itemId);
+  if (Number.isNaN(orderId) || orderId <= 0) {
+    throw new AppError(400, 'Invalid order id');
+  }
+  if (Number.isNaN(itemId) || itemId <= 0) {
+    throw new AppError(400, 'Invalid item id');
+  }
+
+  const parsed = changeItemVendorSchema.safeParse(req.body);
+  if (!parsed.success) {
+    throw new AppError(400, parsed.error.issues[0]?.message ?? 'Invalid input');
+  }
+
+  const userId = req.user?.userId;
+  const role = req.user?.role;
+  if (!userId || !role) {
+    throw new AppError(401, 'Not authenticated');
+  }
+
+  const order = await changeItemVendor(orderId, itemId, parsed.data, { userId, role });
+  sendSuccess(res, { order }, 'Vendor updated');
 }

@@ -74,14 +74,33 @@ export interface PaginatedPendingOrders {
 
 // ─── Vendor groups (GET /orders/:id/vendor-groups) ─────────────
 
+export interface VendorGroupItemAlternative {
+  vendorId: number;
+  vendorName: string;
+  purchasePrice: string;
+  /** Per-unit margin if we switched to this vendor = priceSnapshot - purchasePrice. */
+  margin: string;
+  isPreferred: boolean;
+}
+
 export interface VendorGroupItem {
   id: number;
   productNameSnapshot: string;
   priceSnapshot: string;
+  /** Phase 4 (2026-08-28): purchase price at order time (for margin calc). */
+  purchasePriceSnapshot: string;
+  /** Why this vendor was chosen: "auto" / "manual" / "only-vendor" / "default-vendor" / "preferred". */
+  vendorChoiceReason: string | null;
   qty: number;
   unit: string;
   lineTotal: string;
   addedAfterFinalize: boolean;
+  /** Per-unit margin = priceSnapshot - purchasePriceSnapshot. */
+  margin: string;
+  /** Total margin for this line = margin × qty. */
+  lineMargin: string;
+  /** Other vendors that could supply this product (with their margins). */
+  alternatives: VendorGroupItemAlternative[];
 }
 
 export interface VendorGroup {
@@ -91,6 +110,10 @@ export interface VendorGroup {
   vendorWhatsappNumber: string | null;
   items: VendorGroupItem[];
   subtotal: string;
+  /** Phase 4 (2026-08-28): total margin for this vendor group. */
+  totalMargin: string;
+  /** True if any item was auto-selected or preferred (shows "Recommended" badge). */
+  isRecommended: boolean;
   copyText: string;
   whatsappUrl: string | null;
 }

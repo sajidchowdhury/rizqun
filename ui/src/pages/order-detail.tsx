@@ -414,6 +414,7 @@ export function OrderDetailPage() {
       <VendorGroupsModal
         orderId={orderId}
         orderCode={order.orderCode}
+        orderStatus={order.status}
         open={vendorGroupsOpen}
         onOpenChange={setVendorGroupsOpen}
       />

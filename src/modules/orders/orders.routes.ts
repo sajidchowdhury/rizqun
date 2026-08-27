@@ -13,6 +13,7 @@ import {
   getAuditLog,
   listDone,
   generateRatingLinkHandler,
+  changeItemVendorHandler,
 } from './orders.controller';
 import { getForm as getRatingForm } from '../ratings/ratings.controller';
 import { asyncHandler } from '../../utils/asyncHandler';
@@ -49,6 +50,9 @@ router.post('/:id/items', asyncHandler(addItem));
 
 // DELETE /orders/:id/items/:itemId — remove item from pending order
 router.delete('/:id/items/:itemId', asyncHandler(removeItem));
+
+// PATCH /orders/:id/items/:itemId/vendor — manually override the vendor for an item
+router.patch('/:id/items/:itemId/vendor', asyncHandler(changeItemVendorHandler));
 
 // GET /orders/:id/vendor-groups — items grouped by vendor + copy text + wa.me URL
 router.get('/:id/vendor-groups', asyncHandler(getVendorGroups));

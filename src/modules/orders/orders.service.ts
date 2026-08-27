@@ -7,6 +7,7 @@ import { AppError } from '../../utils/AppError';
 import { generateUniqueOrderCode } from '../../utils/orderCode';
 import { buildVendorCopyText, buildWhatsappUrl } from '../../utils/whatsapp';
 import { isTransitionAllowed, EDITABLE_STATUSES } from './orders.dto';
+import { selectVendorsForCart } from './vendor-selection.service';
 import type {
   FinalizeOrderInput,
   PublicOrder,
@@ -176,19 +177,27 @@ export async function finalizeOrder(
     throw new AppError(400, `Order validation failed: ${errors.join('; ')}`);
   }
 
-  // ─── 3. Compute totals ──────────────────────────────────────
+  // ─── 3. Compute totals + vendor auto-selection ──────────────
   // We already validated that all products exist + are active, so we can safely
   // access them via productMap. Defensive `.filter(Boolean)` keeps TS happy without
   // a non-null assertion.
   //
-  // Phase 1 (2026-08-28): use `effectivePrice` (discountPrice if set, else
-  // salePrice) for the customer-facing lineTotal. Snapshot the purchasePrice
-  // from the chosen vendor + the vendorChoiceReason so we can compute
-  // margin per item even after prices change later.
+  // Phase 4 (2026-08-28): run the vendor auto-selection for each cart item.
+  // For each product, the selection service looks at all ProductVendor rows
+  // (active vendors only) and picks the one with the highest margin
+  // (effectivePrice - vendor.purchasePrice). If a vendor is marked isPreferred,
+  // it always wins. If there's only one vendor, it's "only-vendor". If no
+  // ProductVendor rows exist, fall back to Product.vendorId ("default-vendor").
   //
-  // For now (Phase 1), the chosen vendor is just `product.vendorId` (the
-  // product's default vendor). Phase 4 will replace this with the
-  // auto-selection logic (highest margin across ProductVendor rows).
+  // The chosen vendorId + purchasePrice + reason are snapshot onto the
+  // OrderItem so the margin can be computed retroactively.
+
+  // Run the auto-selection for all cart items (in parallel — each one
+  // does a few small queries).
+  const vendorSelections = await selectVendorsForCart(
+    input.items.map((i) => ({ productId: i.productId, qty: i.qty })),
+  );
+
   const lineItems = input.items
     .map((item) => {
       const product = productMap.get(item.productId);
@@ -196,15 +205,19 @@ export async function finalizeOrder(
       // effectivePrice: discount if set, else salePrice (what the customer pays)
       const effectivePrice = product.discountPrice ?? product.salePrice;
       const lineTotal = effectivePrice.mul(item.qty);
-      // Determine vendorChoiceReason — Phase 1: always "default-vendor" since
-      // we haven't implemented auto-selection yet.
-      const vendorChoiceReason = 'default-vendor';
+
+      // Get the auto-selected vendor for this product
+      const selection = vendorSelections.get(item.productId);
+      const vendorId = selection?.vendorId ?? product.vendorId ?? 0;
+      const purchasePriceSnapshot = selection?.purchasePrice ?? product.purchasePrice;
+      const vendorChoiceReason = selection?.reason ?? 'default-vendor';
+
       return {
         productId: product.id,
-        vendorId: product.vendorId,
+        vendorId,
         productNameSnapshot: product.name,
         priceSnapshot: effectivePrice,
-        purchasePriceSnapshot: product.purchasePrice,
+        purchasePriceSnapshot,
         vendorChoiceReason,
         qty: item.qty,
         lineTotal,
@@ -698,6 +711,10 @@ export async function getOrderVendorGroups(
               whatsappNumber: true,
             },
           },
+          // Load the product to get the unit (not stored on OrderItem)
+          product: {
+            select: { id: true, unit: true },
+          },
         },
         // Oldest first — preserves the order in which the operator added items
         orderBy: { id: 'asc' },
@@ -714,11 +731,49 @@ export async function getOrderVendorGroups(
     throw new AppError(404, 'Order not found');
   }
 
-  // ─── Group items by vendor ─────────────────────────────────
-  // Use a Map to preserve insertion order (first-seen vendorId → first group).
-  // We also sort by vendorId ascending at the end for deterministic ordering
-  // in case items were added out of order via mid-pending edits.
+  // ─── Phase 4: load alternative vendors per product ──────────
+  // For each unique productId in the order, load all ProductVendor rows
+  // (with active vendors) so we can show the operator alternative vendors
+  // + their margins in the vendor-groups modal.
+  const uniqueProductIds = [...new Set(order.items.map((i) => i.productId).filter((id): id is number => id !== null))];
 
+  const productVendors = uniqueProductIds.length > 0
+    ? await prisma.productVendor.findMany({
+        where: {
+          productId: { in: uniqueProductIds },
+          vendor: { isActive: true },
+        },
+        include: {
+          vendor: {
+            select: { id: true, name: true, isActive: true },
+          },
+        },
+      })
+    : [];
+
+  // Build a map: productId → list of alternative vendors (with purchasePrice)
+  const alternativesByProductId = new Map<number, Array<{
+    vendorId: number;
+    vendorName: string;
+    purchasePrice: Prisma.Decimal;
+    isPreferred: boolean;
+  }>>();
+
+  for (const pv of productVendors) {
+    let list = alternativesByProductId.get(pv.productId);
+    if (!list) {
+      list = [];
+      alternativesByProductId.set(pv.productId, list);
+    }
+    list.push({
+      vendorId: pv.vendorId,
+      vendorName: pv.vendor.name,
+      purchasePrice: pv.purchasePrice,
+      isPreferred: pv.isPreferred,
+    });
+  }
+
+  // ─── Group items by vendor ─────────────────────────────────
   const groupMap = new Map<number, VendorGroup>();
 
   for (const item of order.items) {
@@ -733,39 +788,82 @@ export async function getOrderVendorGroups(
         vendorWhatsappNumber: v.whatsappNumber,
         items: [],
         subtotal: '0',
+        totalMargin: '0',
+        isRecommended: false,
         copyText: '',
         whatsappUrl: null,
       };
       groupMap.set(v.id, group);
     }
 
+    // Compute per-unit margin + line margin
+    const price = new Prisma.Decimal(item.priceSnapshot.toString());
+    const purchase = new Prisma.Decimal(item.purchasePriceSnapshot.toString());
+    const margin = price.minus(purchase);
+    const lineMargin = margin.mul(item.qty);
+
+    // Build the alternatives list (exclude the currently-chosen vendor)
+    const allAlternatives = (item.productId ? alternativesByProductId.get(item.productId) : undefined) ?? [];
+    const alternatives = allAlternatives
+      .filter((a) => a.vendorId !== v.id)
+      .map((a) => ({
+        vendorId: a.vendorId,
+        vendorName: a.vendorName,
+        purchasePrice: a.purchasePrice.toString(),
+        margin: price.minus(a.purchasePrice).toString(),
+        isPreferred: a.isPreferred,
+      }));
+
     group.items.push({
       id: item.id,
       productNameSnapshot: item.productNameSnapshot,
       priceSnapshot: item.priceSnapshot.toString(),
+      purchasePriceSnapshot: item.purchasePriceSnapshot.toString(),
+      vendorChoiceReason: item.vendorChoiceReason,
       qty: item.qty,
-      unit: '', // unit is on the Product, not on OrderItem — would need a join
+      unit: item.product?.unit ?? '',
       lineTotal: item.lineTotal.toString(),
       addedAfterFinalize: item.addedAfterFinalize,
+      margin: margin.toString(),
+      lineMargin: lineMargin.toString(),
+      alternatives,
     });
+
+    // Mark the group as "recommended" if any item was auto/preferred
+    if (item.vendorChoiceReason === 'auto' || item.vendorChoiceReason === 'preferred') {
+      group.isRecommended = true;
+    }
   }
 
-  // ─── Compute subtotal + copyText + whatsappUrl per group ──
+  // ─── Compute subtotal + margin + copyText + whatsappUrl per group ──
   const groups: VendorGroup[] = [];
 
-  // Sort by vendorId for stable ordering
-  const sortedVendorIds = Array.from(groupMap.keys()).sort((a, b) => a - b);
+  // Sort: recommended groups first, then by vendorId for stable ordering
+  const sortedVendorIds = Array.from(groupMap.keys()).sort((a, b) => {
+    const ga = groupMap.get(a);
+    const gb = groupMap.get(b);
+    if (ga?.isRecommended !== gb?.isRecommended) {
+      return ga?.isRecommended ? -1 : 1;
+    }
+    return a - b;
+  });
 
   for (const vendorId of sortedVendorIds) {
     const group = groupMap.get(vendorId);
     if (!group) continue; // unreachable — we built this map above
 
-    // Compute subtotal = sum of lineTotal
+    // Compute subtotal = sum of lineTotal, totalMargin = sum of lineMargin
     const subtotal = group.items.reduce(
       (sum, item) => sum.plus(new Prisma.Decimal(item.lineTotal)),
       new Prisma.Decimal(0),
     );
     group.subtotal = subtotal.toString();
+
+    const totalMargin = group.items.reduce(
+      (sum, item) => sum.plus(new Prisma.Decimal(item.lineMargin)),
+      new Prisma.Decimal(0),
+    );
+    group.totalMargin = totalMargin.toString();
 
     // Build copyText
     group.copyText = buildVendorCopyText({
@@ -780,7 +878,7 @@ export async function getOrderVendorGroups(
         .map((i) => ({
           productNameSnapshot: i.productNameSnapshot,
           qty: i.qty,
-          unit: null, // not stored on OrderItem
+          unit: i.product?.unit ?? null,
           priceSnapshot: i.priceSnapshot,
           lineTotal: i.lineTotal,
           addedAfterFinalize: i.addedAfterFinalize,
@@ -970,21 +1068,25 @@ export async function addOrderItem(
     );
   }
 
-  // Phase 1 (2026-08-28): use effectivePrice (discountPrice if set, else
-  // salePrice) and snapshot the purchasePrice + vendorChoiceReason.
+  // Phase 4 (2026-08-28): use the vendor auto-selection for the new item
+  // too, so mid-pending additions get the same profitable vendor logic.
   const effectivePrice = product.discountPrice ?? product.salePrice;
   const lineTotal = effectivePrice.mul(input.qty);
+
+  // Run the selection for this single product
+  const { selectVendorForProduct } = await import('./vendor-selection.service');
+  const selection = await selectVendorForProduct(product.id, effectivePrice);
 
   const updated = await prisma.$transaction(async (tx) => {
     await tx.orderItem.create({
       data: {
         orderId: order.id,
         productId: product.id,
-        vendorId: product.vendorId ?? 0,
+        vendorId: selection.vendorId || product.vendorId || 0,
         productNameSnapshot: product.name,
         priceSnapshot: effectivePrice,
-        purchasePriceSnapshot: product.purchasePrice,
-        vendorChoiceReason: 'default-vendor',
+        purchasePriceSnapshot: selection.purchasePrice,
+        vendorChoiceReason: selection.reason,
         qty: input.qty,
         lineTotal,
         addedAfterFinalize: true,
@@ -1388,4 +1490,94 @@ export async function generateRatingLink(
     ratingToken: token,
     url: `${env.appBaseUrl}/rate/${token}`,
   };
+}
+
+// ─── Manual vendor override (PATCH /orders/:id/items/:itemId/vendor) ──
+//
+// Phase 4 (2026-08-28): lets the operator manually switch an order item
+// to a different vendor. Updates vendorId + purchasePriceSnapshot +
+// sets vendorChoiceReason = "manual".
+//
+// The order must be in an editable state (pending / waiting_vendor /
+// preparing) — same rule as other item edits. Once picked_up, the
+// vendor assignment is locked.
+
+export async function changeItemVendor(
+  orderId: number,
+  itemId: number,
+  input: { vendorId: number },
+  ctx: ListContext,
+): Promise<PublicOrder> {
+  const order = await prisma.order.findUnique({
+    where: { id: orderId },
+    include: { items: true },
+  });
+  if (!order) {
+    throw new AppError(404, 'Order not found');
+  }
+  // Scope check
+  if (ctx.role !== 'super_admin' && order.userId !== ctx.userId) {
+    throw new AppError(404, 'Order not found');
+  }
+  // Editable check
+  if (!EDITABLE_STATUSES.includes(order.status)) {
+    throw new AppError(409, `Order is locked (status: ${order.status}). Cannot change vendor.`);
+  }
+
+  const item = order.items.find((i) => i.id === itemId);
+  if (!item) {
+    throw new AppError(404, 'Order item not found');
+  }
+  if (!item.productId) {
+    throw new AppError(400, 'Cannot change vendor for a custom item (no productId)');
+  }
+
+  // Validate the new vendor exists + is active
+  const newVendor = await prisma.vendor.findUnique({ where: { id: input.vendorId } });
+  if (!newVendor) {
+    throw new AppError(400, `Vendor ${input.vendorId} not found`);
+  }
+  if (!newVendor.isActive) {
+    throw new AppError(400, `Vendor ${input.vendorId} is deactivated`);
+  }
+
+  // Look up the new vendor's purchase price for this product
+  // (from ProductVendor; default to the product-level purchasePrice
+  // if no ProductVendor row exists, or 0 if that's also missing)
+  const productVendor = await prisma.productVendor.findUnique({
+    where: {
+      productId_vendorId: { productId: item.productId, vendorId: input.vendorId },
+    },
+    select: { purchasePrice: true },
+  });
+  const newPurchasePrice = productVendor?.purchasePrice ?? item.purchasePriceSnapshot;
+
+  // Update the item
+  await prisma.orderItem.update({
+    where: { id: itemId },
+    data: {
+      vendorId: input.vendorId,
+      purchasePriceSnapshot: newPurchasePrice,
+      vendorChoiceReason: 'manual',
+    },
+  });
+
+  // Refetch the order with items + vendors for the response
+  const updated = await prisma.order.findUnique({
+    where: { id: orderId },
+    include: {
+      items: {
+        include: {
+          vendor: {
+            select: { id: true, name: true, phone: true, whatsappNumber: true },
+          },
+        },
+        orderBy: { id: 'asc' },
+      },
+    },
+  });
+  if (!updated) {
+    throw new AppError(500, 'Failed to fetch updated order');
+  }
+  return toPublicOrder(updated);
 }

@@ -222,10 +222,30 @@ export interface VendorGroupItem {
   id: number;
   productNameSnapshot: string;
   priceSnapshot: string;
+  // Phase 4 (2026-08-28): purchase price at order time (for margin calc)
+  purchasePriceSnapshot: string;
+  // Why this vendor was chosen: "auto" / "manual" / "only-vendor" /
+  // "default-vendor" / "preferred"
+  vendorChoiceReason: string | null;
   qty: number;
   unit: string;
   lineTotal: string;
   addedAfterFinalize: boolean;
+  // Per-unit margin = priceSnapshot - purchasePriceSnapshot (what the
+  // shop makes per unit). Computed by the backend for display convenience.
+  margin: string;
+  // Total margin for this line = margin × qty.
+  lineMargin: string;
+  // Alternative vendors that could supply this product (with their
+  // current purchasePrice + what the margin WOULD be if the operator
+  // switched to them). Empty if there are no alternatives.
+  alternatives: Array<{
+    vendorId: number;
+    vendorName: string;
+    purchasePrice: string;
+    margin: string;
+    isPreferred: boolean;
+  }>;
 }
 
 export interface VendorGroup {
@@ -235,6 +255,12 @@ export interface VendorGroup {
   vendorWhatsappNumber: string | null;
   items: VendorGroupItem[];
   subtotal: string;
+  // Phase 4 (2026-08-28): total margin for this vendor group
+  // (sum of lineMargin across all items in the group).
+  totalMargin: string;
+  // True if any item in this group was auto-selected or preferred
+  // (shows a "Recommended" badge in the UI).
+  isRecommended: boolean;
   // Pre-formatted multi-line text — paste-ready for WhatsApp
   copyText: string;
   // https://wa.me/<number>?text=<urlencoded copyText>
@@ -389,3 +415,20 @@ export interface RatingLinkResult {
   ratingToken: string;
   url: string;
 }
+
+// ─── Manual vendor override (PATCH /orders/:id/items/:itemId/vendor) ──
+//
+// Phase 4 (2026-08-28): lets the operator manually switch an order item
+// to a different vendor (e.g. "the auto-select picked vendor A, but I
+// know vendor B is more reliable today").
+//
+// Sets `vendorChoiceReason = "manual"` + updates `vendorId` +
+// `purchasePriceSnapshot` to the new vendor's purchase price (looked up
+// from ProductVendor, or 0 if no row exists).
+
+export const changeItemVendorSchema = z.strictObject({
+  vendorId: z.number().int().positive('vendorId must be a positive integer'),
+});
+
+export type ChangeItemVendorInput = z.infer<typeof changeItemVendorSchema>;
+

@@ -145,14 +145,21 @@ export function ProductCatalogCard({
 
         <div className="mt-auto flex items-end justify-between gap-2 pt-1.5">
           <div className="min-w-0">
-            <div className="font-mono text-sm font-semibold tabular-nums">
-              {formatBDT(Number(product.price))}
+            <div className="flex items-baseline gap-1.5">
+              <span className="font-mono text-sm font-semibold tabular-nums">
+                {formatBDT(Number(product.price))}
+              </span>
+              {hasDiscount && (
+                <span className="font-mono text-[11px] text-muted-foreground line-through">
+                  {formatBDT(Number(product.originalPrice))}
+                </span>
+              )}
             </div>
             <div className="text-[11px] text-muted-foreground">
               / {product.unit}
               {hasDiscount && (
-                <span className="ml-1 line-through">
-                  {formatBDT(Number(product.originalPrice))}
+                <span className="ml-1.5 rounded-full bg-commerce-soft px-1.5 py-0.5 text-[10px] font-medium text-commerce-soft-foreground">
+                  Save {formatBDT(Number(product.originalPrice) - Number(product.price))}
                 </span>
               )}
             </div>
