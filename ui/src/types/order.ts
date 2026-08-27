@@ -121,6 +121,14 @@ export interface AuditLog {
 
 // ─── Done list (GET /orders/done) ──────────────────────────────
 
+export interface OrderRating {
+  overall: number;
+  speed: number;
+  behavior: number;
+  comment: string | null;
+  submittedAt: string;
+}
+
 export interface DoneOrderListItem {
   id: number;
   orderCode: string;
@@ -132,6 +140,7 @@ export interface DoneOrderListItem {
   itemsCount: number;
   createdAt: string;
   deliveredAt: string | null;
+  rating: OrderRating | null;
 }
 
 export interface PaginatedDoneOrders {

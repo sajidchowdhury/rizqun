@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CheckCircle2, Search } from 'lucide-react';
+import { CheckCircle2, Search, Star } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   Select,
@@ -136,13 +137,14 @@ export function OrdersDonePage() {
                     <TableHead>Items</TableHead>
                     <TableHead className="text-right">Total</TableHead>
                     <TableHead>Delivered</TableHead>
+                    <TableHead>Rating</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {data?.data.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
+                      <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">
                         No delivered orders for this period.
                       </TableCell>
                     </TableRow>
@@ -166,6 +168,30 @@ export function OrdersDonePage() {
                         </TableCell>
                         <TableCell className="text-sm text-muted-foreground">
                           {order.deliveredAt ? new Date(order.deliveredAt).toLocaleString() : '—'}
+                        </TableCell>
+                        <TableCell>
+                          {order.rating ? (
+                            <div className="space-y-0.5">
+                              <div className="flex items-center gap-1">
+                                <Star className="size-3 fill-amber-400 text-amber-400" />
+                                <span className="text-xs font-medium">
+                                  {order.rating.overall}.0
+                                </span>
+                                <span className="text-xs text-muted-foreground">
+                                  ({order.rating.speed}/{order.rating.behavior})
+                                </span>
+                              </div>
+                              {order.rating.comment && (
+                                <p className="max-w-[200px] truncate text-xs text-muted-foreground">
+                                  "{order.rating.comment}"
+                                </p>
+                              )}
+                            </div>
+                          ) : (
+                            <Badge variant="outline" className="text-xs">
+                              Awaiting
+                            </Badge>
+                          )}
                         </TableCell>
                         <TableCell className="text-right">
                           <Button

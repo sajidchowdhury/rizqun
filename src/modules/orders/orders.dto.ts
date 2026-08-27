@@ -344,6 +344,14 @@ export const listDoneOrdersQuerySchema = z.object({
 
 export type ListDoneOrdersQuery = z.infer<typeof listDoneOrdersQuerySchema>;
 
+export interface OrderRating {
+  overall: number;
+  speed: number;
+  behavior: number;
+  comment: string | null;
+  submittedAt: Date;
+}
+
 export interface DoneOrderListItem {
   id: number;
   orderCode: string;
@@ -355,6 +363,7 @@ export interface DoneOrderListItem {
   itemsCount: number;
   createdAt: Date;
   deliveredAt: Date | null;
+  rating: OrderRating | null;
 }
 
 export interface PaginatedDoneOrders {

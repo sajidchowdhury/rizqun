@@ -1237,6 +1237,15 @@ export async function listDoneOrders(
         createdAt: true,
         deliveredAt: true,
         _count: { select: { items: true } },
+        rating: {
+          select: {
+            overall: true,
+            speed: true,
+            behavior: true,
+            comment: true,
+            submittedAt: true,
+          },
+        },
       },
     }),
     prisma.order.count({ where }),
@@ -1253,6 +1262,15 @@ export async function listDoneOrders(
     itemsCount: r._count.items,
     createdAt: r.createdAt,
     deliveredAt: r.deliveredAt,
+    rating: r.rating
+      ? {
+          overall: r.rating.overall,
+          speed: r.rating.speed,
+          behavior: r.rating.behavior,
+          comment: r.rating.comment,
+          submittedAt: r.rating.submittedAt,
+        }
+      : null,
   }));
 
   return {
