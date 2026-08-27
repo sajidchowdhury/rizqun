@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
 
 import { api } from '@/lib/api';
 import { toast } from '@/lib/toast';
@@ -158,5 +158,44 @@ export function useEssentialProducts() {
       return data.data;
     },
     staleTime: 5 * 60_000,
+  });
+}
+
+// ─── Infinite catalog (GET /products, page-based infinite scroll) ──
+//
+// Used by the New Order storefront and the Products grid "Load more"
+// button. `useInfiniteQuery` accumulates pages client-side so the
+// user can keep clicking "Load more" without losing what's already
+// on screen.
+//
+// `pageSize` defaults to 24 — enough to fill a 4-col desktop grid
+// (6 rows) without an overwhelming initial request.
+
+export interface ProductCatalogQuery extends Omit<ProductListQuery, 'page' | 'limit'> {
+  pageSize?: number;
+}
+
+export function useProductsInfinite(query: ProductCatalogQuery = {}) {
+  const { pageSize = 24, ...rest } = query;
+
+  return useInfiniteQuery({
+    queryKey: ['products', 'infinite', rest, pageSize] as const,
+    initialPageParam: 1,
+    queryFn: async ({ pageParam }) => {
+      const params = new URLSearchParams();
+      params.set('limit', String(pageSize));
+      params.set('page', String(pageParam));
+      if (rest.categoryId) params.set('categoryId', String(rest.categoryId));
+      if (rest.vendorId) params.set('vendorId', String(rest.vendorId));
+      if (rest.isActive !== undefined) params.set('isActive', String(rest.isActive));
+      if (rest.category) params.set('category', rest.category);
+      if (rest.search) params.set('search', rest.search);
+      const qs = params.toString() ? `?${params.toString()}` : '';
+      return (await api.get<ProductsResponse>(`/products${qs}`)) as ProductsResponse;
+    },
+    getNextPageParam: (lastPage) => {
+      const { page, totalPages } = lastPage.pagination;
+      return page < totalPages ? page + 1 : undefined;
+    },
   });
 }

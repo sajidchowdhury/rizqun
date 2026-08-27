@@ -23,6 +23,10 @@ export interface CartItem {
   categorySlug: string;
   categoryName: string;
   unit: string;
+  /** Optional product image URL — carried into the cart so the cart panel
+   *  can show a real thumbnail (per "image should be more visible" requirement).
+   *  Optional because older code paths may not pass it. */
+  imageUrl?: string | null;
 }
 
 export interface CustomerInfo {

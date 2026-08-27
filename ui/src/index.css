@@ -11,6 +11,13 @@
     ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New',
     monospace;
 
+  /* Commerce accent — emerald, used for "add to cart" / "in cart" / subtotal emphasis.
+     Tuned to read as fresh + premium without clashing with the monochrome base palette. */
+  --color-commerce: var(--commerce);
+  --color-commerce-foreground: var(--commerce-foreground);
+  --color-commerce-soft: var(--commerce-soft);
+  --color-commerce-soft-foreground: var(--commerce-soft-foreground);
+
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -85,6 +92,12 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+
+  /* Commerce accent — emerald. Slightly desaturated for premium feel. */
+  --commerce: oklch(0.62 0.13 158.5);
+  --commerce-foreground: oklch(0.985 0 0);
+  --commerce-soft: oklch(0.96 0.03 158.5);
+  --commerce-soft-foreground: oklch(0.36 0.09 158.5);
 }
 
 .dark {
@@ -119,6 +132,12 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
+
+  /* Commerce accent — emerald (dark variant: brighter for contrast on dark surface). */
+  --commerce: oklch(0.7 0.15 158.5);
+  --commerce-foreground: oklch(0.145 0 0);
+  --commerce-soft: oklch(0.3 0.06 158.5);
+  --commerce-soft-foreground: oklch(0.85 0.1 158.5);
 }
 
 @layer base {
@@ -130,5 +149,17 @@
   }
   html {
     @apply font-sans;
+  }
+}
+
+@layer utilities {
+  /* Hide scrollbar on horizontal filter strips while keeping scroll behaviour.
+     Used by the mobile-friendly category/vendor chip row on the new order page. */
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
   }
 }
