@@ -4,6 +4,7 @@ import { Pencil, Plus, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { ProductImage } from '@/components/products/product-image';
 import {
   Select,
   SelectContent,
@@ -179,6 +180,7 @@ export function ProductsPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead>Image</TableHead>
                     <TableHead>Name</TableHead>
                     <TableHead>SKU</TableHead>
                     <TableHead className="text-right">Price</TableHead>
@@ -193,62 +195,92 @@ export function ProductsPage() {
                   {data?.data.length === 0 ? (
                     <TableRow>
                       <TableCell
-                        colSpan={isAdmin ? 8 : 7}
+                        colSpan={isAdmin ? 9 : 8}
                         className="h-24 text-center text-muted-foreground"
                       >
                         No products match your filters.
                       </TableCell>
                     </TableRow>
                   ) : (
-                    data?.data.map((product) => (
-                      <TableRow key={product.id}>
-                        <TableCell className="font-medium">{product.name}</TableCell>
-                        <TableCell className="font-mono text-xs text-muted-foreground">
-                          {product.sku ?? '—'}
-                        </TableCell>
-                        <TableCell className="text-right font-mono">
-                          {bdt.format(Number(product.price))}
-                        </TableCell>
-                        <TableCell>
-                          {product.category && (
-                            <Badge variant="outline">{product.category.name}</Badge>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-sm text-muted-foreground">
-                          {product.vendor?.name ?? '—'}
-                        </TableCell>
-                        <TableCell className="text-sm text-muted-foreground">
-                          {product.unit}
-                        </TableCell>
-                        <TableCell>
-                          {isAdmin ? (
-                            <Switch
-                              checked={product.isActive}
-                              onCheckedChange={(checked) =>
-                                toggleProduct.mutate({ id: product.id, isActive: checked })
-                              }
-                              aria-label={`Toggle active for ${product.name}`}
-                            />
-                          ) : product.isActive ? (
-                            <Badge>Active</Badge>
-                          ) : (
-                            <Badge variant="secondary">Inactive</Badge>
-                          )}
-                        </TableCell>
-                        {isAdmin && (
-                          <TableCell className="text-right">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => setEditTarget(product)}
-                              aria-label={`Edit ${product.name}`}
-                            >
-                              <Pencil className="size-4" />
-                            </Button>
+                    data?.data.map((product) => {
+                      const hasDiscount = product.discountActive && product.originalPrice;
+                      const discountPct = hasDiscount
+                        ? Math.round(
+                            (1 - Number(product.price) / Number(product.originalPrice)) * 100,
+                          )
+                        : 0;
+                      return (
+                        <TableRow key={product.id}>
+                          <TableCell>
+                            <ProductImage src={product.imageUrl} alt={product.name} size="sm" />
                           </TableCell>
-                        )}
-                      </TableRow>
-                    ))
+                          <TableCell>
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-medium">{product.name}</span>
+                              {hasDiscount && discountPct > 0 && (
+                                <Badge variant="destructive" className="text-[10px]">
+                                  −{discountPct}%
+                                </Badge>
+                              )}
+                            </div>
+                            {product.genericName && (
+                              <div className="text-xs text-muted-foreground">
+                                {product.genericName}
+                              </div>
+                            )}
+                          </TableCell>
+                          <TableCell className="font-mono text-xs text-muted-foreground">
+                            {product.sku ?? '—'}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <span className="font-mono">{bdt.format(Number(product.price))}</span>
+                            {hasDiscount && (
+                              <div className="text-xs text-muted-foreground line-through">
+                                {bdt.format(Number(product.originalPrice))}
+                              </div>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {product.category && (
+                              <Badge variant="outline">{product.category.name}</Badge>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-sm text-muted-foreground">
+                            {product.vendor?.name ?? '—'}
+                          </TableCell>
+                          <TableCell className="text-sm text-muted-foreground">
+                            {product.unit}
+                          </TableCell>
+                          <TableCell>
+                            {isAdmin ? (
+                              <Switch
+                                checked={product.isActive}
+                                onCheckedChange={(checked) =>
+                                  toggleProduct.mutate({ id: product.id, isActive: checked })
+                                }
+                                aria-label={`Toggle active for ${product.name}`}
+                              />
+                            ) : product.isActive ? (
+                              <Badge>Active</Badge>
+                            ) : (
+                              <Badge variant="secondary">Inactive</Badge>
+                            )}
+                          </TableCell>
+                          {isAdmin && (
+                            <TableCell className="text-right">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => setEditTarget(product)}
+                                aria-label={`Edit ${product.name}`}
+                              >
+                                <Pencil className="size-4" />
+                              </Button>
+                            </TableCell>
+                          )}
+                        </TableRow>
+                      );
+                    })
                   )}
                 </TableBody>
               </Table>

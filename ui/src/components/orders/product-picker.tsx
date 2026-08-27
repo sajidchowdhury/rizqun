@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Loader2, Minus, Package, Plus, Search, Sparkles } from 'lucide-react';
+import { Loader2, Minus, Plus, Search, Sparkles } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -13,6 +13,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { ProductImage } from '@/components/products/product-image';
 import { useProductSearch } from '@/hooks/use-products';
 import { useCart } from '@/hooks/use-cart';
 import { formatBDT } from '@/contexts/cart-store';
@@ -168,6 +169,10 @@ export function ProductPicker({ open, onOpenChange }: ProductPickerProps) {
             (results?.data.length ?? 0) > 0 &&
             results?.data.map((product) => {
               const isSelected = effectiveSelected?.id === product.id;
+              const hasDiscount = product.discountActive && product.originalPrice;
+              const discountPct = hasDiscount
+                ? Math.round((1 - Number(product.price) / Number(product.originalPrice)) * 100)
+                : 0;
               return (
                 <button
                   key={product.id}
@@ -177,17 +182,29 @@ export function ProductPicker({ open, onOpenChange }: ProductPickerProps) {
                     isSelected ? 'bg-accent' : ''
                   }`}
                 >
-                  <Package className="size-4 shrink-0 text-muted-foreground" />
+                  <ProductImage src={product.imageUrl} alt={product.name} size="xs" />
                   <div className="flex flex-1 items-center justify-between">
                     <div className="min-w-0">
-                      <div className="truncate font-medium">{product.name}</div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="truncate font-medium">{product.name}</span>
+                        {hasDiscount && discountPct > 0 && (
+                          <Badge variant="destructive" className="shrink-0 text-[10px]">
+                            −{discountPct}%
+                          </Badge>
+                        )}
+                      </div>
                       <div className="truncate text-xs text-muted-foreground">
                         {product.categoryName} · {product.vendorName} · {product.unit}
                       </div>
                     </div>
-                    <span className="ml-2 shrink-0 font-mono text-sm">
-                      {formatBDT(Number(product.price))}
-                    </span>
+                    <div className="ml-2 shrink-0 text-right">
+                      <span className="font-mono text-sm">{formatBDT(Number(product.price))}</span>
+                      {hasDiscount && (
+                        <span className="ml-1 text-xs text-muted-foreground line-through">
+                          {formatBDT(Number(product.originalPrice))}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </button>
               );
