@@ -5,6 +5,9 @@ import {
   updateProductSchema,
   searchProductsQuerySchema,
   quickAddProductSchema,
+  bulkUpdatePricesSchema,
+  setVendorPriceSchema,
+  priceHistoryQuerySchema,
 } from './products.dto';
 import {
   listProducts,
@@ -16,6 +19,9 @@ import {
   quickAddProduct,
   getProductRecommendations,
   getEssentialProducts,
+  bulkUpdatePrices,
+  setVendorPrice,
+  getPriceHistory,
 } from './products.service';
 import { sendSuccess } from '../../utils/response';
 import { AppError } from '../../utils/AppError';
@@ -65,7 +71,12 @@ export async function update(req: Request, res: Response): Promise<void> {
     throw new AppError(400, parsed.error.issues[0]?.message ?? 'Invalid input');
   }
 
-  const product = await updateProduct(id, parsed.data);
+  // Pass the user context so the service can log price changes to
+  // ProductPriceHistory (only when a price field actually changes).
+  const userId = req.user?.userId;
+  const ctx = userId ? { userId } : undefined;
+
+  const product = await updateProduct(id, parsed.data, ctx);
   sendSuccess(res, { product }, 'Product updated');
 }
 
@@ -137,4 +148,72 @@ export async function essentials(_req: Request, res: Response): Promise<void> {
   const limit = Math.min(10, 20);
   const products = await getEssentialProducts(limit);
   sendSuccess(res, { data: products }, 'Essential products retrieved');
+}
+
+// ─── POST /products/bulk-update-prices ────────────────────────
+//
+// The morning vendor-call workflow. Operator calls vendor, gets the
+// day's prices, submits them all at once. The service updates Product
+// + ProductVendor + ProductPriceHistory in one transaction.
+//
+// Auth: any authenticated user (operators do this daily).
+
+export async function bulkUpdatePricesHandler(req: Request, res: Response): Promise<void> {
+  const parsed = bulkUpdatePricesSchema.safeParse(req.body);
+  if (!parsed.success) {
+    throw new AppError(400, parsed.error.issues[0]?.message ?? 'Invalid input');
+  }
+
+  const userId = req.user?.userId;
+  if (!userId) {
+    throw new AppError(401, 'Not authenticated');
+  }
+
+  const result = await bulkUpdatePrices(parsed.data, { userId });
+  sendSuccess(res, result, `Updated ${result.updated} products, ${result.historyRows} history rows written`);
+}
+
+// ─── POST /products/:id/vendor-price ─────────────────────────
+//
+// Set per-vendor purchase price for one product. Used by Phase 4 prep
+// (when the operator wants to manually record a vendor's price without
+// going through the full bulk-update workflow).
+
+export async function setVendorPriceHandler(req: Request, res: Response): Promise<void> {
+  const id = Number(req.params.id);
+  if (Number.isNaN(id) || id <= 0) {
+    throw new AppError(400, 'Invalid product id');
+  }
+
+  const parsed = setVendorPriceSchema.safeParse(req.body);
+  if (!parsed.success) {
+    throw new AppError(400, parsed.error.issues[0]?.message ?? 'Invalid input');
+  }
+
+  const userId = req.user?.userId;
+  if (!userId) {
+    throw new AppError(401, 'Not authenticated');
+  }
+
+  const result = await setVendorPrice(id, parsed.data, { userId });
+  sendSuccess(res, result, 'Vendor price updated');
+}
+
+// ─── GET /products/:id/price-history ──────────────────────────
+//
+// Returns the audit log of every price change for a product.
+
+export async function priceHistory(req: Request, res: Response): Promise<void> {
+  const id = Number(req.params.id);
+  if (Number.isNaN(id) || id <= 0) {
+    throw new AppError(400, 'Invalid product id');
+  }
+
+  const parsed = priceHistoryQuerySchema.safeParse(req.query);
+  if (!parsed.success) {
+    throw new AppError(400, parsed.error.issues[0]?.message ?? 'Invalid query');
+  }
+
+  const result = await getPriceHistory(id, parsed.data);
+  sendSuccess(res, result, 'Price history retrieved');
 }

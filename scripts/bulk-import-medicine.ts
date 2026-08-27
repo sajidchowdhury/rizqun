@@ -158,11 +158,17 @@ async function main() {
 
       if (price === 0) totalDeactivated++;
 
+      // Phase 1 (2026-08-28): use the new 3-price model.
+      //   - salePrice     = the price from the Excel (what we charge)
+      //   - purchasePrice = 0 (operator fills in via morning workflow)
+      //   - discountPrice = null (medicine imports don't carry discounts)
       batch.push({
         name,
         sku,
         brand: brandName || null,
-        price,
+        salePrice: price,
+        purchasePrice: 0,
+        discountPrice: null,
         categoryId: category.id,
         vendorId,
         unit: dosage || 'pcs',

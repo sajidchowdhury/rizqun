@@ -8,29 +8,48 @@ import type {
   SearchProductsQuery,
   SearchResultRow,
   QuickAddProductInput,
+  BulkUpdatePricesInput,
+  SetVendorPriceInput,
+  PriceHistoryQuery,
 } from './products.dto';
 
 // ─── Public product shape (includes category + vendor for convenience) ──
+//
+// All three prices are exposed. `effectivePrice` is the price the customer
+// actually pays — discountPrice if set, otherwise salePrice. The order UI
+// uses `effectivePrice` for display + cart math; the products list page
+// shows all 3 raw prices so the operator can audit margins.
 
 export interface PublicProduct {
   id: number;
   name: string;
   sku: string | null;
   brand: string | null;
-  price: string;
+  // ─── 3 prices (Phase 1, 2026-08-28) ─────────────────────────
+  purchasePrice: string;
+  salePrice: string;
+  discountPrice: string | null;
+  // Convenience: what the customer actually pays right now
+  effectivePrice: string;
   categoryId: number;
   vendorId: number | null;
   unit: string;
   isActive: boolean;
   imageUrl: string | null;
-  originalPrice: string | null;
-  discountActive: boolean;
   genericName: string | null;
   isEssential: boolean;
   createdAt: Date;
   updatedAt: Date;
   category?: { id: number; slug: string; name: string };
   vendor?: { id: number; name: string; phone: string; whatsappNumber: string | null };
+  // Per-vendor purchase prices, if loaded. Undefined on list views where
+  // we don't fetch the join (to keep the payload small).
+  productVendors?: Array<{
+    vendorId: number;
+    vendorName: string;
+    purchasePrice: string;
+    isPreferred: boolean;
+  }>;
 }
 
 function toPublicProduct(p: {
@@ -38,14 +57,14 @@ function toPublicProduct(p: {
   name: string;
   sku: string | null;
   brand: string | null;
-  price: Prisma.Decimal;
+  purchasePrice: Prisma.Decimal;
+  salePrice: Prisma.Decimal;
+  discountPrice: Prisma.Decimal | null;
   categoryId: number;
   vendorId: number | null;
   unit: string;
   isActive: boolean;
   imageUrl: string | null;
-  originalPrice: Prisma.Decimal | null;
-  discountActive: boolean;
   genericName: string | null;
   isEssential: boolean;
   createdAt: Date;
@@ -57,26 +76,42 @@ function toPublicProduct(p: {
     phone: string;
     whatsappNumber: string | null;
   } | null;
+  productVendors?: Array<{
+    vendorId: number;
+    purchasePrice: Prisma.Decimal;
+    isPreferred: boolean;
+    vendor: { name: string };
+  }>;
 }): PublicProduct {
+  const effective = p.discountPrice ?? p.salePrice;
   return {
     id: p.id,
     name: p.name,
     sku: p.sku,
     brand: p.brand,
-    price: p.price.toString(),
+    purchasePrice: p.purchasePrice.toString(),
+    salePrice: p.salePrice.toString(),
+    discountPrice: p.discountPrice ? p.discountPrice.toString() : null,
+    effectivePrice: effective.toString(),
     categoryId: p.categoryId,
     vendorId: p.vendorId,
     unit: p.unit,
     isActive: p.isActive,
     imageUrl: p.imageUrl,
-    originalPrice: p.originalPrice ? p.originalPrice.toString() : null,
-    discountActive: p.discountActive,
     genericName: p.genericName,
     isEssential: p.isEssential,
     createdAt: p.createdAt,
     updatedAt: p.updatedAt,
     ...(p.category && { category: p.category }),
     ...(p.vendor && { vendor: p.vendor }),
+    ...(p.productVendors && {
+      productVendors: p.productVendors.map((pv) => ({
+        vendorId: pv.vendorId,
+        vendorName: pv.vendor.name,
+        purchasePrice: pv.purchasePrice.toString(),
+        isPreferred: pv.isPreferred,
+      })),
+    }),
   };
 }
 
@@ -192,7 +227,9 @@ export async function createProduct(input: CreateProductInput): Promise<PublicPr
     data: {
       name: input.name,
       sku: input.sku ?? null,
-      price: input.price,
+      purchasePrice: input.purchasePrice,
+      salePrice: input.salePrice,
+      discountPrice: input.discountPrice ?? null,
       categoryId: input.categoryId,
       vendorId: input.vendorId,
       unit: input.unit,
@@ -210,8 +247,17 @@ export async function createProduct(input: CreateProductInput): Promise<PublicPr
 }
 
 // ─── Update ─────────────────────────────────────────────────────
+//
+// If any price field (purchasePrice, salePrice, discountPrice) is changed,
+// a ProductPriceHistory row is appended with the new snapshot. This keeps
+// the audit trail intact for the morning vendor-call workflow AND for
+// individual product edits from the admin panel.
 
-export async function updateProduct(id: number, input: UpdateProductInput): Promise<PublicProduct> {
+export async function updateProduct(
+  id: number,
+  input: UpdateProductInput,
+  ctx?: { userId: number },
+): Promise<PublicProduct> {
   const existing = await prisma.product.findUnique({ where: { id } });
   if (!existing) {
     throw new AppError(404, 'Product not found');
@@ -246,23 +292,61 @@ export async function updateProduct(id: number, input: UpdateProductInput): Prom
     }
   }
 
-  const updated = await prisma.product.update({
-    where: { id },
-    data: {
-      ...(input.name !== undefined && { name: input.name }),
-      ...(input.sku !== undefined && { sku: input.sku }),
-      ...(input.price !== undefined && { price: input.price }),
-      ...(input.categoryId !== undefined && { categoryId: input.categoryId }),
-      ...(input.vendorId !== undefined && { vendorId: input.vendorId }),
-      ...(input.unit !== undefined && { unit: input.unit }),
-      ...(input.isActive !== undefined && { isActive: input.isActive }),
-    },
-    include: {
-      category: { select: { id: true, slug: true, name: true } },
-      vendor: {
-        select: { id: true, name: true, phone: true, whatsappNumber: true },
+  // ─── Detect price changes so we can log history ────────────
+  // We log a history row if ANY of the 3 prices actually changed
+  // (not just submitted — the new value must differ from the existing one).
+  const priceChanged =
+    (input.purchasePrice !== undefined &&
+      input.purchasePrice !== Number(existing.purchasePrice)) ||
+    (input.salePrice !== undefined && input.salePrice !== Number(existing.salePrice)) ||
+    (input.discountPrice !== undefined &&
+      ((input.discountPrice === null && existing.discountPrice !== null) ||
+        (input.discountPrice !== null &&
+          (existing.discountPrice === null ||
+            input.discountPrice !== Number(existing.discountPrice)))));
+
+  const updated = await prisma.$transaction(async (tx) => {
+    const product = await tx.product.update({
+      where: { id },
+      data: {
+        ...(input.name !== undefined && { name: input.name }),
+        ...(input.sku !== undefined && { sku: input.sku }),
+        ...(input.purchasePrice !== undefined && { purchasePrice: input.purchasePrice }),
+        ...(input.salePrice !== undefined && { salePrice: input.salePrice }),
+        ...(input.discountPrice !== undefined && { discountPrice: input.discountPrice }),
+        ...(input.categoryId !== undefined && { categoryId: input.categoryId }),
+        ...(input.vendorId !== undefined && { vendorId: input.vendorId }),
+        ...(input.unit !== undefined && { unit: input.unit }),
+        ...(input.isActive !== undefined && { isActive: input.isActive }),
       },
-    },
+      include: {
+        category: { select: { id: true, slug: true, name: true } },
+        vendor: {
+          select: { id: true, name: true, phone: true, whatsappNumber: true },
+        },
+      },
+    });
+
+    // ─── Append price history row if any price changed ────
+    if (priceChanged && ctx?.userId) {
+      await tx.productPriceHistory.create({
+        data: {
+          productId: id,
+          // vendorId is null here — this is a product-level change
+          // (salePrice / discountPrice / default purchasePrice).
+          // Per-vendor purchase-price changes go through
+          // `bulkUpdatePrices` or `setVendorPrice`, which set vendorId.
+          vendorId: null,
+          purchasePrice: product.purchasePrice,
+          salePrice: product.salePrice,
+          discountPrice: product.discountPrice,
+          changedBy: ctx.userId,
+          note: 'Product edit',
+        },
+      });
+    }
+
+    return product;
   });
 
   return toPublicProduct(updated);
@@ -388,6 +472,12 @@ export async function searchProducts(
 }
 
 // ─── FTS implementation with proper parameter binding ─────────
+//
+// SELECT projection includes the 3 prices + `effectivePrice` (the price the
+// customer actually pays — discountPrice if set, otherwise salePrice). The
+// `effectivePrice` column is computed in SQL via COALESCE so the frontend
+// doesn't have to re-derive it for every search hit.
+
 async function searchFts(
   tsQueryStr: string,
   slugs: string[] | null,
@@ -397,13 +487,16 @@ async function searchFts(
     // No category filter
     return prisma.$queryRaw<SearchResultRow[]>`
       SELECT
-        p.id, p.name, p.price::text AS price, p.unit,
+        p.id, p.name,
+        p.sale_price::text     AS "salePrice",
+        p.purchase_price::text AS "purchasePrice",
+        p.discount_price::text AS "discountPrice",
+        COALESCE(p.discount_price, p.sale_price)::text AS "effectivePrice",
+        p.unit,
         p.vendor_id AS "vendorId", v.name AS "vendorName",
         v.whatsapp_number AS "vendorWhatsappNumber",
         p.category_id AS "categoryId", c.slug AS "categorySlug", c.name AS "categoryName",
         p.image_url AS "imageUrl",
-        p.original_price::text AS "originalPrice",
-        p.discount_active AS "discountActive",
         p.generic_name AS "genericName",
         ts_rank(p.search_vector, q) AS rank, 'fts' AS source
       FROM products p
@@ -421,13 +514,16 @@ async function searchFts(
   // With category filter — use Prisma.sql with parameterized array
   return prisma.$queryRaw<SearchResultRow[]>`
     SELECT
-      p.id, p.name, p.price::text AS price, p.unit,
+      p.id, p.name,
+      p.sale_price::text     AS "salePrice",
+      p.purchase_price::text AS "purchasePrice",
+      p.discount_price::text AS "discountPrice",
+      COALESCE(p.discount_price, p.sale_price)::text AS "effectivePrice",
+      p.unit,
       p.vendor_id AS "vendorId", v.name AS "vendorName",
       v.whatsapp_number AS "vendorWhatsappNumber",
       p.category_id AS "categoryId", c.slug AS "categorySlug", c.name AS "categoryName",
       p.image_url AS "imageUrl",
-      p.original_price::text AS "originalPrice",
-      p.discount_active AS "discountActive",
       p.generic_name AS "genericName",
       ts_rank(p.search_vector, q) AS rank, 'fts' AS source
     FROM products p
@@ -453,13 +549,16 @@ async function searchIlike(
   if (slugs === null) {
     return prisma.$queryRaw<SearchResultRow[]>`
       SELECT
-        p.id, p.name, p.price::text AS price, p.unit,
+        p.id, p.name,
+        p.sale_price::text     AS "salePrice",
+        p.purchase_price::text AS "purchasePrice",
+        p.discount_price::text AS "discountPrice",
+        COALESCE(p.discount_price, p.sale_price)::text AS "effectivePrice",
+        p.unit,
         p.vendor_id AS "vendorId", v.name AS "vendorName",
         v.whatsapp_number AS "vendorWhatsappNumber",
         p.category_id AS "categoryId", c.slug AS "categorySlug", c.name AS "categoryName",
         p.image_url AS "imageUrl",
-        p.original_price::text AS "originalPrice",
-        p.discount_active AS "discountActive",
         p.generic_name AS "genericName",
         0.0::float AS rank, 'ilike' AS source
       FROM products p
@@ -475,13 +574,16 @@ async function searchIlike(
 
   return prisma.$queryRaw<SearchResultRow[]>`
     SELECT
-      p.id, p.name, p.price::text AS price, p.unit,
+      p.id, p.name,
+      p.sale_price::text     AS "salePrice",
+      p.purchase_price::text AS "purchasePrice",
+      p.discount_price::text AS "discountPrice",
+      COALESCE(p.discount_price, p.sale_price)::text AS "effectivePrice",
+      p.unit,
       p.vendor_id AS "vendorId", v.name AS "vendorName",
       v.whatsapp_number AS "vendorWhatsappNumber",
       p.category_id AS "categoryId", c.slug AS "categorySlug", c.name AS "categoryName",
       p.image_url AS "imageUrl",
-      p.original_price::text AS "originalPrice",
-      p.discount_active AS "discountActive",
       p.generic_name AS "genericName",
       0.0::float AS rank, 'ilike' AS source
     FROM products p
@@ -561,7 +663,9 @@ export async function quickAddProduct(
     data: {
       name: input.name,
       sku,
-      price: input.price,
+      purchasePrice: input.purchasePrice,
+      salePrice: input.salePrice,
+      discountPrice: input.discountPrice ?? null,
       categoryId: category.id,
       vendorId: input.vendorId,
       unit: input.unit,
@@ -628,4 +732,291 @@ export async function getEssentialProducts(limit: number = 10): Promise<PublicPr
     orderBy: { name: 'asc' },
   });
   return products.map(toPublicProduct);
+}
+
+// ─── Bulk price update (the morning vendor-call workflow) ────────
+//
+// POST /products/bulk-update-prices
+//
+// Workflow:
+//   1. Operator calls vendor in the morning, gets the day's prices.
+//   2. Operator opens the price-update page, picks the vendor, edits the
+//      prices for the products that changed (or all of them if needed).
+//   3. On submit, the frontend calls this endpoint with a list of updates.
+//   4. For each update:
+//      - Write the new prices to the Product (salePrice, discountPrice)
+//      - Write the new purchasePrice to the ProductVendor row for
+//        (product, vendor), upserting if needed
+//      - Append a ProductPriceHistory row with the new snapshot
+//        (vendorId set, since this is a vendor-specific change)
+//   5. All in a single transaction — partial failures roll back.
+//
+// Returns a summary: how many products were updated, how many history
+// rows were written. The frontend shows this as a toast.
+
+export interface BulkUpdateResult {
+  updated: number;
+  historyRows: number;
+}
+
+export async function bulkUpdatePrices(
+  input: BulkUpdatePricesInput,
+  ctx: { userId: number },
+): Promise<BulkUpdateResult> {
+  // ─── 1. Validate the vendor exists ──────────────────────────
+  const vendor = await prisma.vendor.findUnique({ where: { id: input.vendorId } });
+  if (!vendor) {
+    throw new AppError(400, `Vendor with id ${input.vendorId} does not exist`);
+  }
+
+  // ─── 2. Fetch all referenced products in one query ──────────
+  const productIds = input.updates.map((u) => u.productId);
+  const products = await prisma.product.findMany({
+    where: { id: { in: productIds } },
+    select: {
+      id: true,
+      purchasePrice: true,
+      salePrice: true,
+      discountPrice: true,
+      vendorId: true,
+    },
+  });
+  const productMap = new Map(products.map((p) => [p.id, p]));
+
+  // Validate every product exists
+  const missing = productIds.filter((id) => !productMap.has(id));
+  if (missing.length > 0) {
+    throw new AppError(400, `Products not found: ${missing.join(', ')}`);
+  }
+
+  // ─── 3. Run the update in a transaction ────────────────────
+  let updated = 0;
+  let historyRows = 0;
+
+  await prisma.$transaction(async (tx) => {
+    for (const u of input.updates) {
+      const existing = productMap.get(u.productId);
+      if (!existing) continue; // unreachable — validated above
+
+      // Build the product update payload — only the fields that are
+      // actually being changed (avoids touching `updatedAt` for fields
+      // that didn't change).
+      const productUpdate: Prisma.ProductUpdateInput = {};
+      if (u.purchasePrice !== undefined) {
+        productUpdate.purchasePrice = u.purchasePrice;
+      }
+      if (u.salePrice !== undefined) {
+        productUpdate.salePrice = u.salePrice;
+      }
+      if (u.discountPrice !== undefined) {
+        productUpdate.discountPrice = u.discountPrice;
+      }
+
+      // Determine if anything actually changed (avoid empty updates + no-op history rows)
+      const productChanged =
+        (u.purchasePrice !== undefined &&
+          u.purchasePrice !== Number(existing.purchasePrice)) ||
+        (u.salePrice !== undefined && u.salePrice !== Number(existing.salePrice)) ||
+        (u.discountPrice !== undefined &&
+          ((u.discountPrice === null && existing.discountPrice !== null) ||
+            (u.discountPrice !== null &&
+              (existing.discountPrice === null ||
+                u.discountPrice !== Number(existing.discountPrice)))));
+
+      if (Object.keys(productUpdate).length > 0 && productChanged) {
+        await tx.product.update({
+          where: { id: u.productId },
+          data: productUpdate,
+        });
+        updated++;
+      }
+
+      // ─── Upsert ProductVendor row + per-vendor purchasePrice ──
+      // We upsert even if the purchase price didn't change, because the
+      // operator might be calling this vendor for the first time (so the
+      // ProductVendor row doesn't exist yet). The unique constraint is
+      // (productId, vendorId), so the upsert is safe.
+      if (u.purchasePrice !== undefined) {
+        await tx.productVendor.upsert({
+          where: {
+            productId_vendorId: { productId: u.productId, vendorId: input.vendorId },
+          },
+          update: { purchasePrice: u.purchasePrice },
+          create: {
+            productId: u.productId,
+            vendorId: input.vendorId,
+            purchasePrice: u.purchasePrice,
+          },
+        });
+      }
+
+      // ─── Append price history row ──────────────────────────
+      // We log a history row only if something actually changed.
+      if (productChanged || u.purchasePrice !== undefined) {
+        // Re-read the product to get the post-update snapshot
+        const after = await tx.product.findUnique({
+          where: { id: u.productId },
+          select: { purchasePrice: true, salePrice: true, discountPrice: true },
+        });
+        if (after) {
+          await tx.productPriceHistory.create({
+            data: {
+              productId: u.productId,
+              vendorId: input.vendorId, // vendor-specific change
+              purchasePrice: after.purchasePrice,
+              salePrice: after.salePrice,
+              discountPrice: after.discountPrice,
+              changedBy: ctx.userId,
+              note: input.note ?? null,
+            },
+          });
+          historyRows++;
+        }
+      }
+    }
+  });
+
+  return { updated, historyRows };
+}
+
+// ─── Set per-vendor purchase price (single product, single vendor) ──
+//
+// POST /products/:id/vendor-price
+//
+// Used by Phase 4 prep — sets `ProductVendor.purchasePrice` for one
+// (product, vendor) pair, upserting the row if needed. Also writes a
+// ProductPriceHistory row.
+
+export async function setVendorPrice(
+  productId: number,
+  input: SetVendorPriceInput,
+  ctx: { userId: number },
+): Promise<{ productVendor: { productId: number; vendorId: number; purchasePrice: string } }> {
+  // Validate product exists
+  const product = await prisma.product.findUnique({ where: { id: productId } });
+  if (!product) {
+    throw new AppError(404, 'Product not found');
+  }
+
+  // Validate vendor exists
+  const vendor = await prisma.vendor.findUnique({ where: { id: input.vendorId } });
+  if (!vendor) {
+    throw new AppError(400, `Vendor with id ${input.vendorId} does not exist`);
+  }
+
+  const result = await prisma.$transaction(async (tx) => {
+    const pv = await tx.productVendor.upsert({
+      where: {
+        productId_vendorId: { productId, vendorId: input.vendorId },
+      },
+      update: {
+        purchasePrice: input.purchasePrice,
+        ...(input.isPreferred !== undefined && { isPreferred: input.isPreferred }),
+      },
+      create: {
+        productId,
+        vendorId: input.vendorId,
+        purchasePrice: input.purchasePrice,
+        isPreferred: input.isPreferred ?? false,
+      },
+      select: { productId: true, vendorId: true, purchasePrice: true },
+    });
+
+    // Append history row
+    await tx.productPriceHistory.create({
+      data: {
+        productId,
+        vendorId: input.vendorId,
+        purchasePrice: product.purchasePrice, // product-level (unchanged here)
+        salePrice: product.salePrice,
+        discountPrice: product.discountPrice,
+        changedBy: ctx.userId,
+        note: 'Vendor price set',
+      },
+    });
+
+    return pv;
+  });
+
+  return {
+    productVendor: {
+      productId: result.productId,
+      vendorId: result.vendorId,
+      purchasePrice: result.purchasePrice.toString(),
+    },
+  };
+}
+
+// ─── Price history (audit log query) ────────────────────────────
+//
+// GET /products/:id/price-history
+//
+// Returns the append-only log of every price change for a product.
+// Filterable by vendorId (to see only this vendor's purchase-price
+// changes) and date range.
+
+export interface PriceHistoryRow {
+  id: number;
+  productId: number;
+  vendorId: number | null;
+  vendorName: string | null;
+  purchasePrice: string;
+  salePrice: string;
+  discountPrice: string | null;
+  effectivePrice: string;
+  changedBy: number;
+  changedByName: string;
+  changedAt: Date;
+  note: string | null;
+}
+
+export async function getPriceHistory(
+  productId: number,
+  query: PriceHistoryQuery,
+): Promise<{ data: PriceHistoryRow[] }> {
+  // Validate product exists
+  const product = await prisma.product.findUnique({ where: { id: productId } });
+  if (!product) {
+    throw new AppError(404, 'Product not found');
+  }
+
+  const where: Prisma.ProductPriceHistoryWhereInput = { productId };
+  if (query.vendorId !== undefined) {
+    where.vendorId = query.vendorId;
+  }
+  if (query.from || query.to) {
+    where.changedAt = {};
+    if (query.from) where.changedAt.gte = new Date(query.from);
+    if (query.to) where.changedAt.lte = new Date(query.to);
+  }
+
+  const rows = await prisma.productPriceHistory.findMany({
+    where,
+    orderBy: { changedAt: 'desc' },
+    take: query.limit,
+    include: {
+      vendor: { select: { name: true } },
+      changer: { select: { name: true } },
+    },
+  });
+
+  return {
+    data: rows.map((r) => {
+      const effective = r.discountPrice ?? r.salePrice;
+      return {
+        id: r.id,
+        productId: r.productId,
+        vendorId: r.vendorId,
+        vendorName: r.vendor?.name ?? null,
+        purchasePrice: r.purchasePrice.toString(),
+        salePrice: r.salePrice.toString(),
+        discountPrice: r.discountPrice ? r.discountPrice.toString() : null,
+        effectivePrice: effective.toString(),
+        changedBy: r.changedBy,
+        changedByName: r.changer.name,
+        changedAt: r.changedAt,
+        note: r.note,
+      };
+    }),
+  };
 }

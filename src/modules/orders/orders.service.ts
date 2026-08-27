@@ -180,16 +180,32 @@ export async function finalizeOrder(
   // We already validated that all products exist + are active, so we can safely
   // access them via productMap. Defensive `.filter(Boolean)` keeps TS happy without
   // a non-null assertion.
+  //
+  // Phase 1 (2026-08-28): use `effectivePrice` (discountPrice if set, else
+  // salePrice) for the customer-facing lineTotal. Snapshot the purchasePrice
+  // from the chosen vendor + the vendorChoiceReason so we can compute
+  // margin per item even after prices change later.
+  //
+  // For now (Phase 1), the chosen vendor is just `product.vendorId` (the
+  // product's default vendor). Phase 4 will replace this with the
+  // auto-selection logic (highest margin across ProductVendor rows).
   const lineItems = input.items
     .map((item) => {
       const product = productMap.get(item.productId);
       if (!product) return null; // unreachable — validation above already rejected
-      const lineTotal = product.price.mul(item.qty);
+      // effectivePrice: discount if set, else salePrice (what the customer pays)
+      const effectivePrice = product.discountPrice ?? product.salePrice;
+      const lineTotal = effectivePrice.mul(item.qty);
+      // Determine vendorChoiceReason — Phase 1: always "default-vendor" since
+      // we haven't implemented auto-selection yet.
+      const vendorChoiceReason = 'default-vendor';
       return {
         productId: product.id,
         vendorId: product.vendorId,
         productNameSnapshot: product.name,
-        priceSnapshot: product.price,
+        priceSnapshot: effectivePrice,
+        purchasePriceSnapshot: product.purchasePrice,
+        vendorChoiceReason,
         qty: item.qty,
         lineTotal,
       };
@@ -228,6 +244,8 @@ export async function finalizeOrder(
         vendorId: item.vendorId ?? 0,
         productNameSnapshot: item.productNameSnapshot,
         priceSnapshot: item.priceSnapshot,
+        purchasePriceSnapshot: item.purchasePriceSnapshot,
+        vendorChoiceReason: item.vendorChoiceReason,
         qty: item.qty,
         lineTotal: item.lineTotal,
         addedAfterFinalize: false, // initial items are not "added after finalize"
@@ -952,7 +970,10 @@ export async function addOrderItem(
     );
   }
 
-  const lineTotal = product.price.mul(input.qty);
+  // Phase 1 (2026-08-28): use effectivePrice (discountPrice if set, else
+  // salePrice) and snapshot the purchasePrice + vendorChoiceReason.
+  const effectivePrice = product.discountPrice ?? product.salePrice;
+  const lineTotal = effectivePrice.mul(input.qty);
 
   const updated = await prisma.$transaction(async (tx) => {
     await tx.orderItem.create({
@@ -961,7 +982,9 @@ export async function addOrderItem(
         productId: product.id,
         vendorId: product.vendorId ?? 0,
         productNameSnapshot: product.name,
-        priceSnapshot: product.price,
+        priceSnapshot: effectivePrice,
+        purchasePriceSnapshot: product.purchasePrice,
+        vendorChoiceReason: 'default-vendor',
         qty: input.qty,
         lineTotal,
         addedAfterFinalize: true,

@@ -177,8 +177,6 @@ async function main() {
         const price = parseFloat(priceStr.replace(/[^0-9.]/g, '')) || 0;
         const discountedPrice = parseFloat(discountedPriceStr.replace(/[^0-9.]/g, '')) || 0;
         const finalPrice = discountedPrice > 0 ? discountedPrice : price;
-        const originalPrice = discountedPrice > 0 && discountedPrice < price ? price : null;
-        const hasDiscount = originalPrice !== null;
 
         let localImageUrl: string | null = null;
         if (!skipImages && imageUrl) {
@@ -192,14 +190,18 @@ async function main() {
           const existing = await prisma.product.findFirst({ where: { name, isActive: true } });
           if (existing) { totalSkipped++; continue; }
 
+          // Phase 1 (2026-08-28): use the new 3-price model.
+          //   - salePrice     = the price column from the import (what we charge)
+          //   - purchasePrice = 0 (operator fills in via morning workflow)
+          //   - discountPrice = the discounted price (if any), else null
           await prisma.product.create({
             data: {
               name,
               sku,
               brand,
-              price: finalPrice,
-              originalPrice: originalPrice ?? null,
-              discountActive: hasDiscount,
+              salePrice: finalPrice,
+              purchasePrice: 0,
+              discountPrice: discountedPrice > 0 && discountedPrice < price ? discountedPrice : null,
               categoryId,
               subCategoryId,
               vendorId: null,

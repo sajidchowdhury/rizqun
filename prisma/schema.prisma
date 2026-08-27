@@ -38,11 +38,11 @@ enum OrderStatus {
 // ─── Section (top level: Grocery, Medicine, Other) ───────────
 
 model Section {
-  id        Int       @id @default(autoincrement())
-  slug      String    @unique
+  id        Int      @id @default(autoincrement())
+  slug      String   @unique
   name      String
-  createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   groups Group[]
 
@@ -53,12 +53,12 @@ model Section {
 // Example: Cooking, Beverages, Dairy
 
 model Group {
-  id        Int       @id @default(autoincrement())
-  slug      String    @unique
+  id        Int      @id @default(autoincrement())
+  slug      String   @unique
   name      String
-  sectionId Int       @map("section_id")
-  createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @updatedAt @map("updated_at")
+  sectionId Int      @map("section_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   section    Section    @relation(fields: [sectionId], references: [id], onDelete: Restrict)
   categories Category[]
@@ -71,14 +71,14 @@ model Group {
 // Example: Spices, Rice, Oil, Tea
 
 model Category {
-  id        Int       @id @default(autoincrement())
-  slug      String    @unique
+  id        Int      @id @default(autoincrement())
+  slug      String   @unique
   name      String
-  groupId   Int       @map("group_id")
-  createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @updatedAt @map("updated_at")
+  groupId   Int      @map("group_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
-  group         Group        @relation(fields: [groupId], references: [id], onDelete: Restrict)
+  group         Group         @relation(fields: [groupId], references: [id], onDelete: Restrict)
   subCategories SubCategory[]
   products      Product[]
 
@@ -90,15 +90,15 @@ model Category {
 // Example: Whole Spices, Ground Spices (under Spices category)
 
 model SubCategory {
-  id          Int       @id @default(autoincrement())
-  slug        String    @unique
-  name        String
-  categoryId  Int       @map("category_id")
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
+  id         Int      @id @default(autoincrement())
+  slug       String   @unique
+  name       String
+  categoryId Int      @map("category_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
 
-  category  Category @relation(fields: [categoryId], references: [id], onDelete: Restrict)
-  products  Product[]
+  category Category  @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  products Product[]
 
   @@index([categoryId])
   @@map("sub_categories")
@@ -107,23 +107,24 @@ model SubCategory {
 // ─── User ──────────────────────────────────────────────────────
 
 model User {
-  id             Int       @id @default(autoincrement())
+  id             Int      @id @default(autoincrement())
   name           String
-  email          String    @unique
+  email          String   @unique
   phone          String
-  passwordHash   String    @map("password_hash")
-  role           UserRole  @default(user)
-  categoryAccess Json      @default("[]") @map("category_access")
-  isActive       Boolean   @default(true) @map("is_active")
-  createdAt      DateTime  @default(now()) @map("created_at")
-  updatedAt      DateTime  @updatedAt @map("updated_at")
+  passwordHash   String   @map("password_hash")
+  role           UserRole @default(user)
+  categoryAccess Json     @default("[]") @map("category_access")
+  isActive       Boolean  @default(true) @map("is_active")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  orders       Order[]
+  statusLogs   StatusLog[]
+  priceChanges ProductPriceHistory[] // price changes authored by this user
 
   @@index([isActive])
   @@index([role])
   @@map("users")
-
-  orders    Order[]
-  statusLogs StatusLog[]
 }
 
 // ─── Vendor (physical shop/supplier, NOT a product brand) ─────
@@ -132,7 +133,7 @@ model Vendor {
   id             Int            @id @default(autoincrement())
   name           String
   phone          String
-  whatsappNumber String?       @map("whatsapp_number")
+  whatsappNumber String?        @map("whatsapp_number")
   category       VendorCategory @default(other)
   isActive       Boolean        @default(true) @map("is_active")
   createdAt      DateTime       @default(now()) @map("created_at")
@@ -141,6 +142,7 @@ model Vendor {
   products       Product[]
   productVendors ProductVendor[]
   orderItems     OrderItem[]
+  priceHistory   ProductPriceHistory[] // price changes affecting this vendor
 
   @@index([category])
   @@index([isActive])
@@ -148,32 +150,56 @@ model Vendor {
 }
 
 // ─── Product ──────────────────────────────────────────────────
+//
+// Price model (3 prices, see PRD):
+//   - purchasePrice  (p.price): what we pay the vendor (default vendor's price)
+//   - salePrice      (s.price): what we charge the customer (shown on order page)
+//   - discountPrice (optional): if set, this is the active sale price shown to
+//                                the customer (replaces the old `originalPrice` +
+//                                `discountActive` two-field setup — cleaner)
+//
+// Per-vendor purchase prices live in `ProductVendor.purchasePrice` — the same
+// product can be sourced from multiple vendors at different prices. That's
+// the foundation for the Phase 4 vendor-profitability auto-selection.
+//
+// Every price change is logged in `ProductPriceHistory` so we can later
+// analyze which vendor changes prices, which vendor is most profitable
+// over time, etc.
 
 model Product {
-  id            Int      @id @default(autoincrement())
+  id            Int                      @id @default(autoincrement())
   name          String
-  sku           String?  @unique
+  sku           String?                  @unique
   brand         String?
-  price         Decimal  @db.Decimal(10, 2)
-  categoryId    Int      @map("category_id")
-  vendorId      Int?     @map("vendor_id")
-  subCategoryId Int?     @map("sub_category_id")
-  unit          String   @default("pcs")
+  // ─── 3 prices (Phase 1, 2026-08-28) ─────────────────────────
+  // `salePrice` was previously called `price`. Renamed for clarity.
+  // `purchasePrice` defaults to 0 — operators fill it in via the
+  // morning price-update workflow (or it stays 0 for items the shop
+  // doesn't track cost on).
+  // `discountPrice` is nullable — when set, it's the active customer
+  // price (overrides salePrice in the order UI). When null, no
+  // discount is active.
+  purchasePrice Decimal                  @default(0) @map("purchase_price") @db.Decimal(10, 2)
+  salePrice     Decimal                  @map("sale_price") @db.Decimal(10, 2)
+  discountPrice Decimal?                 @map("discount_price") @db.Decimal(10, 2)
+  categoryId    Int                      @map("category_id")
+  vendorId      Int?                     @map("vendor_id")
+  subCategoryId Int?                     @map("sub_category_id")
+  unit          String                   @default("pcs")
   searchVector  Unsupported("tsvector")? @map("search_vector")
-  isActive      Boolean  @default(true) @map("is_active")
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
+  isActive      Boolean                  @default(true) @map("is_active")
+  createdAt     DateTime                 @default(now()) @map("created_at")
+  updatedAt     DateTime                 @updatedAt @map("updated_at")
 
-  imageUrl       String?  @map("image_url")
-  originalPrice  Decimal? @db.Decimal(10, 2) @map("original_price")
-  discountActive Boolean  @default(false) @map("discount_active")
-  genericName    String?  @map("generic_name")
-  isEssential    Boolean  @default(false) @map("is_essential")
+  imageUrl    String? @map("image_url")
+  genericName String? @map("generic_name")
+  isEssential Boolean @default(false) @map("is_essential")
 
-  category       Category      @relation(fields: [categoryId], references: [id], onDelete: Restrict)
-  vendor         Vendor?       @relation(fields: [vendorId], references: [id], onDelete: SetNull)
-  subCategory    SubCategory?  @relation(fields: [subCategoryId], references: [id], onDelete: Restrict)
+  category       Category              @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  vendor         Vendor?               @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+  subCategory    SubCategory?          @relation(fields: [subCategoryId], references: [id], onDelete: Restrict)
   productVendors ProductVendor[]
+  priceHistory   ProductPriceHistory[]
   orderItems     OrderItem[]
 
   @@index([categoryId])
@@ -184,12 +210,29 @@ model Product {
   @@map("products")
 }
 
-// ─── ProductVendor (many-to-many junction) ────────────────────
+// ─── ProductVendor (many-to-many junction + per-vendor purchase price)
+//
+// Each row records: "vendor X sells product Y at `purchasePrice`".
+// The same product from different vendors has different purchase prices,
+// so the operator (or the auto-selection logic) can pick the most
+// profitable vendor per product by computing `salePrice - purchasePrice`.
+//
+// `isPreferred` is a manual override: if true, the auto-selection logic
+// will always pick this vendor for this product (operator's deliberate
+// choice, e.g. "this vendor is more reliable even if slightly pricier").
 
 model ProductVendor {
-  id        Int @id @default(autoincrement())
-  productId Int @map("product_id")
-  vendorId  Int @map("vendor_id")
+  id            Int      @id @default(autoincrement())
+  productId     Int      @map("product_id")
+  vendorId      Int      @map("vendor_id")
+  // Per-vendor purchase price (p.price). Defaults to 0 — operators fill
+  // it in via the morning price-update workflow.
+  purchasePrice Decimal  @default(0) @map("purchase_price") @db.Decimal(10, 2)
+  // Manual override flag — when true, auto-selection always picks this
+  // vendor for this product.
+  isPreferred   Boolean  @default(false) @map("is_preferred")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
 
   product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
   vendor  Vendor  @relation(fields: [vendorId], references: [id], onDelete: Cascade)
@@ -197,6 +240,47 @@ model ProductVendor {
   @@unique([productId, vendorId])
   @@index([vendorId])
   @@map("product_vendors")
+}
+
+// ─── ProductPriceHistory (audit log of every price change) ────
+//
+// Every time an operator updates a product's price (via the morning
+// workflow or the standard edit form), we append a snapshot row here.
+// This is the audit trail for:
+//   - "Which vendor changes prices most often?" (filter by vendorId)
+//   - "Which vendor is most profitable over time?" (sum (salePrice -
+//     purchasePrice) * qty across order items joined to this history)
+//   - "What was the price of X on date Y?" (latest row with changedAt <= Y)
+//
+// `vendorId` is nullable:
+//   - null  → product-level change (salePrice or discountPrice updated)
+//   - set   → vendor-specific change (purchasePrice for that vendor updated)
+//
+// All three price fields are stored as a full snapshot at the time of
+// change (not just the changed field) — easier for historical queries
+// ("show me all prices as of date X") and avoids NULL-handling complexity.
+
+model ProductPriceHistory {
+  id            Int      @id @default(autoincrement())
+  productId     Int      @map("product_id")
+  // Nullable: null for product-level changes (salePrice, discountPrice),
+  // set for vendor-specific purchase price changes.
+  vendorId      Int?     @map("vendor_id")
+  purchasePrice Decimal  @map("purchase_price") @db.Decimal(10, 2)
+  salePrice     Decimal  @map("sale_price") @db.Decimal(10, 2)
+  discountPrice Decimal? @map("discount_price") @db.Decimal(10, 2)
+  changedBy     Int      @map("changed_by")
+  changedAt     DateTime @default(now()) @map("changed_at")
+  note          String?  @db.Text
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  vendor  Vendor? @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+  changer User    @relation(fields: [changedBy], references: [id], onDelete: Restrict)
+
+  @@index([productId, changedAt])
+  @@index([vendorId, changedAt])
+  @@index([changedBy])
+  @@map("product_price_history")
 }
 
 // ─── Orders ─────────────────────────────────────────────────────
@@ -209,7 +293,7 @@ model Order {
   customerPhone   String      @map("customer_phone")
   customerAddress String?     @map("customer_address")
   subtotal        Decimal     @db.Decimal(12, 2)
-  deliveryFee     Decimal     @default(0) @db.Decimal(10, 2) @map("delivery_fee")
+  deliveryFee     Decimal     @default(0) @map("delivery_fee") @db.Decimal(10, 2)
   total           Decimal     @db.Decimal(12, 2)
   status          OrderStatus @default(pending)
   ratingToken     String?     @unique @map("rating_token")
@@ -229,20 +313,34 @@ model Order {
 }
 
 model OrderItem {
-  id                   Int      @id @default(autoincrement())
-  orderId              Int      @map("order_id")
-  productId            Int?     @map("product_id")
-  vendorId             Int      @map("vendor_id")
-  productNameSnapshot  String   @map("product_name_snapshot")
-  priceSnapshot        Decimal @db.Decimal(10, 2) @map("price_snapshot")
-  qty                  Int      @default(1)
-  lineTotal            Decimal @db.Decimal(12, 2) @map("line_total")
-  addedAfterFinalize   Boolean  @default(false) @map("added_after_finalize")
-  addedAt              DateTime @default(now()) @map("added_at")
+  id                    Int      @id @default(autoincrement())
+  orderId               Int      @map("order_id")
+  productId             Int?     @map("product_id")
+  vendorId              Int      @map("vendor_id")
+  productNameSnapshot   String   @map("product_name_snapshot")
+  // Sale price at the time of order (s.price). The price the customer
+  // pays per unit. If a discount was active, this is the discount price.
+  priceSnapshot         Decimal  @map("price_snapshot") @db.Decimal(10, 2)
+  // Purchase price at the time of order (p.price from the chosen vendor).
+  // Stored so we can compute margin per order item even after the
+  // product's current purchasePrice changes.
+  purchasePriceSnapshot Decimal  @default(0) @map("purchase_price_snapshot") @db.Decimal(10, 2)
+  // Why was this vendor chosen for this item?
+  //   - "auto"          : Phase 4 auto-selection picked this vendor (highest margin)
+  //   - "manual"        : operator manually overrode the auto-pick
+  //   - "only-vendor"   : product has only one vendor, no choice
+  //   - "default-vendor": product has no ProductVendor rows, fell back to Product.vendorId
+  //   - "preferred"     : operator marked this vendor as preferred for this product
+  // Nullable for backward compat with existing order items.
+  vendorChoiceReason    String?  @map("vendor_choice_reason")
+  qty                   Int      @default(1)
+  lineTotal             Decimal  @map("line_total") @db.Decimal(12, 2)
+  addedAfterFinalize    Boolean  @default(false) @map("added_after_finalize")
+  addedAt               DateTime @default(now()) @map("added_at")
 
-  order    Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  product  Product?  @relation(fields: [productId], references: [id], onDelete: SetNull)
-  vendor   Vendor   @relation(fields: [vendorId], references: [id], onDelete: Restrict)
+  order   Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  vendor  Vendor   @relation(fields: [vendorId], references: [id], onDelete: Restrict)
 
   @@index([orderId])
   @@index([productId])

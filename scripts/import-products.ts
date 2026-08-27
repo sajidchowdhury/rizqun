@@ -113,7 +113,10 @@ async function main() {
       data: {
         name: row.name,
         sku: row.sku,
-        price: row.price,
+        // Phase 1 (2026-08-28): use the new 3-price model.
+        salePrice: row.price,
+        purchasePrice: 0,
+        discountPrice: null,
         categoryId: category.id,
         vendorId: vendor.id,
         unit: row.unit,
