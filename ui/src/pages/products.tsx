@@ -182,7 +182,7 @@ export function ProductsPage() {
                   <TableRow>
                     <TableHead>Image</TableHead>
                     <TableHead>Name</TableHead>
-                    <TableHead>SKU</TableHead>
+                    <TableHead>Brand</TableHead>
                     <TableHead className="text-right">Price</TableHead>
                     <TableHead>Category</TableHead>
                     <TableHead>Vendor</TableHead>
@@ -229,8 +229,8 @@ export function ProductsPage() {
                               </div>
                             )}
                           </TableCell>
-                          <TableCell className="font-mono text-xs text-muted-foreground">
-                            {product.sku ?? '—'}
+                          <TableCell className="text-sm text-muted-foreground">
+                            {product.brand ?? '—'}
                           </TableCell>
                           <TableCell className="text-right">
                             <span className="font-mono">{bdt.format(Number(product.price))}</span>

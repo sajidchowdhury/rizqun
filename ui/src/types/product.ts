@@ -13,6 +13,7 @@ export interface Product {
   vendorId: number;
   unit: string;
   isActive: boolean;
+  brand: string | null;
   imageUrl: string | null;
   originalPrice: string | null;
   discountActive: boolean;

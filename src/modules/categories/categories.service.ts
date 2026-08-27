@@ -35,10 +35,14 @@ export async function createCategory(input: CreateCategoryInput): Promise<Public
     throw new AppError(409, `Category with slug '${input.slug}' already exists`);
   }
 
+  // Default to 'other' group if not specified
+  const groupId = input.groupId ?? (await prisma.group.findUnique({ where: { slug: 'other' } }))?.id ?? 3;
+
   const category = await prisma.category.create({
     data: {
       slug: input.slug,
       name: input.name,
+      groupId,
     },
   });
 

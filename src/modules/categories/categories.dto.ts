@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 // ─── Create category (POST /categories) ──────────────────────
 
-export const createCategorySchema = z.strictObject({
+export const createCategorySchema = z.object({
   slug: z
     .string()
     .trim()
@@ -10,6 +10,7 @@ export const createCategorySchema = z.strictObject({
     .max(50)
     .regex(/^[a-z0-9_-]+$/, 'Slug must be lowercase alphanumeric (a-z, 0-9, _, -)'),
   name: z.string().trim().min(2, 'Name must be at least 2 characters').max(100),
+  groupId: z.number().int().positive().optional(),
 });
 
 export type CreateCategoryInput = z.infer<typeof createCategorySchema>;

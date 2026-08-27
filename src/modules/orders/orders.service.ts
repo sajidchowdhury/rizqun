@@ -225,7 +225,7 @@ export async function finalizeOrder(
       data: lineItems.map((item) => ({
         orderId: newOrder.id,
         productId: item.productId,
-        vendorId: item.vendorId,
+        vendorId: item.vendorId ?? 0,
         productNameSnapshot: item.productNameSnapshot,
         priceSnapshot: item.priceSnapshot,
         qty: item.qty,
@@ -959,7 +959,7 @@ export async function addOrderItem(
       data: {
         orderId: order.id,
         productId: product.id,
-        vendorId: product.vendorId,
+        vendorId: product.vendorId ?? 0,
         productNameSnapshot: product.name,
         priceSnapshot: product.price,
         qty: input.qty,

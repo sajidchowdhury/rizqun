@@ -16,9 +16,10 @@ export interface PublicProduct {
   id: number;
   name: string;
   sku: string | null;
-  price: string; // Decimal is serialized as string by Prisma
+  brand: string | null;
+  price: string;
   categoryId: number;
-  vendorId: number;
+  vendorId: number | null;
   unit: string;
   isActive: boolean;
   imageUrl: string | null;
@@ -36,9 +37,10 @@ function toPublicProduct(p: {
   id: number;
   name: string;
   sku: string | null;
+  brand: string | null;
   price: Prisma.Decimal;
   categoryId: number;
-  vendorId: number;
+  vendorId: number | null;
   unit: string;
   isActive: boolean;
   imageUrl: string | null;
@@ -60,6 +62,7 @@ function toPublicProduct(p: {
     id: p.id,
     name: p.name,
     sku: p.sku,
+    brand: p.brand,
     price: p.price.toString(),
     categoryId: p.categoryId,
     vendorId: p.vendorId,
