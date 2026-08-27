@@ -7,16 +7,21 @@ export interface Product {
   id: number;
   name: string;
   sku: string | null;
-  /** Decimal as string (JSON-safe — backend uses Prisma.Decimal). */
-  price: string;
+  // ─── 3 prices (Phase 1, 2026-08-28) ─────────────────────────
+  // All Decimals as string (JSON-safe — backend uses Prisma.Decimal).
+  purchasePrice: string;
+  salePrice: string;
+  discountPrice: string | null;
+  // Convenience: what the customer actually pays (discountPrice if set,
+  // else salePrice). Computed by the backend so the frontend doesn't
+  // need to re-derive it per row.
+  effectivePrice: string;
   categoryId: number;
-  vendorId: number;
+  vendorId: number | null;
   unit: string;
   isActive: boolean;
   brand: string | null;
   imageUrl: string | null;
-  originalPrice: string | null;
-  discountActive: boolean;
   genericName: string | null;
   isEssential: boolean;
   createdAt: string;
@@ -24,6 +29,14 @@ export interface Product {
   /** Included when the request asks for `include: { category, vendor }`. */
   category?: { id: number; slug: string; name: string };
   vendor?: { id: number; name: string; phone: string; whatsappNumber: string | null };
+  /** Per-vendor purchase prices, if loaded. Undefined on list views where
+   *  we don't fetch the join (to keep the payload small). */
+  productVendors?: Array<{
+    vendorId: number;
+    vendorName: string;
+    purchasePrice: string;
+    isPreferred: boolean;
+  }>;
 }
 
 // ─── List query ───────────────────────────────────────────────────
@@ -57,7 +70,9 @@ export interface ProductResponse {
 export interface ProductCreateForm {
   name: string;
   sku: string;
-  price: number;
+  salePrice: number;
+  purchasePrice?: number;
+  discountPrice?: number | null;
   categoryId: number;
   vendorId: number;
   unit: string;
@@ -71,7 +86,11 @@ export type ProductUpdateForm = Partial<ProductCreateForm>;
 export interface ProductSearchResult {
   id: number;
   name: string;
-  price: string;
+  // 3 prices (Phase 1, 2026-08-28)
+  salePrice: string;
+  purchasePrice: string;
+  discountPrice: string | null;
+  effectivePrice: string;
   unit: string;
   vendorId: number;
   vendorName: string;
@@ -80,8 +99,6 @@ export interface ProductSearchResult {
   categorySlug: string;
   categoryName: string;
   imageUrl: string | null;
-  originalPrice: string | null;
-  discountActive: boolean;
   genericName: string | null;
   rank: number;
   source: 'fts' | 'ilike';
@@ -89,6 +106,80 @@ export interface ProductSearchResult {
 
 export interface ProductSearchResponse {
   data: ProductSearchResult[];
+}
+
+// ─── Vendor products (GET /vendors/:id/products) ───────────────────
+//
+// Used by the morning price-update page. Mirrors the backend
+// `VendorProductRow` interface.
+
+export interface VendorProduct {
+  id: number;
+  name: string;
+  brand: string | null;
+  unit: string;
+  imageUrl: string | null;
+  categoryId: number;
+  categoryName: string;
+  // The vendor's current purchase price for this product (from
+  // ProductVendor — '0' if no row exists yet).
+  vendorPurchasePrice: string;
+  // True if this vendor is the product's default vendor
+  // (Product.vendorId = vendorId).
+  isDefaultVendor: boolean;
+  // Product-level prices (current values, displayed for reference).
+  purchasePrice: string;
+  salePrice: string;
+  discountPrice: string | null;
+  effectivePrice: string;
+  isActive: boolean;
+}
+
+export interface VendorProductsResponse {
+  data: VendorProduct[];
+  vendor: { id: number; name: string };
+}
+
+// ─── Bulk price update (POST /products/bulk-update-prices) ────────
+
+export interface BulkUpdatePriceItem {
+  productId: number;
+  purchasePrice?: number;
+  salePrice?: number;
+  // `null` explicitly clears the discount; `undefined` leaves it as-is.
+  discountPrice?: number | null;
+}
+
+export interface BulkUpdatePricesPayload {
+  vendorId: number;
+  note?: string;
+  updates: BulkUpdatePriceItem[];
+}
+
+export interface BulkUpdatePricesResult {
+  updated: number;
+  historyRows: number;
+}
+
+// ─── Price history (GET /products/:id/price-history) ──────────────
+
+export interface PriceHistoryEntry {
+  id: number;
+  productId: number;
+  vendorId: number | null;
+  vendorName: string | null;
+  purchasePrice: string;
+  salePrice: string;
+  discountPrice: string | null;
+  effectivePrice: string;
+  changedBy: number;
+  changedByName: string;
+  changedAt: string;
+  note: string | null;
+}
+
+export interface PriceHistoryResponse {
+  data: PriceHistoryEntry[];
 }
 
 // Re-export for convenience

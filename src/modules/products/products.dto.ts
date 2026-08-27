@@ -237,3 +237,23 @@ export const priceHistoryQuerySchema = z.object({
 });
 
 export type PriceHistoryQuery = z.infer<typeof priceHistoryQuerySchema>;
+
+// ─── List vendor products query (GET /vendors/:id/products) ────
+//
+// Used by the price-update page. Optional filters:
+//   - categoryId : filter by product category
+//   - search     : search by product name (ILIKE)
+//   - includeInactive : include inactive products (default false)
+//   - limit      : max results (default 500, hard cap 1000)
+
+export const listVendorProductsQuerySchema = z.object({
+  categoryId: z.coerce.number().int().positive().optional(),
+  search: z.string().trim().optional(),
+  includeInactive: z
+    .enum(['true', 'false'])
+    .optional()
+    .transform((v) => (v === undefined ? false : v === 'true')),
+  limit: z.coerce.number().int().min(1).max(1000).default(500),
+});
+
+export type ListVendorProductsQueryInput = z.infer<typeof listVendorProductsQuerySchema>;

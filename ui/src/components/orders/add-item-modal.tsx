@@ -110,7 +110,7 @@ export function AddItemModal({ orderId, open, onOpenChange }: AddItemModalProps)
                     </span>
                   </div>
                   <span className="ml-2 shrink-0 font-mono text-sm">
-                    {formatBDT(Number(product.price))}
+                    {formatBDT(Number(product.effectivePrice))}
                   </span>
                 </div>
               </button>
@@ -124,7 +124,7 @@ export function AddItemModal({ orderId, open, onOpenChange }: AddItemModalProps)
               <div className="min-w-0">
                 <div className="truncate font-medium">{effectiveSelected.name}</div>
                 <div className="text-xs text-muted-foreground">
-                  {formatBDT(Number(effectiveSelected.price))} / {effectiveSelected.unit}
+                  {formatBDT(Number(effectiveSelected.effectivePrice))} / {effectiveSelected.unit}
                 </div>
               </div>
               <div className="flex items-center gap-2">

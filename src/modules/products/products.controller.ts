@@ -8,6 +8,7 @@ import {
   bulkUpdatePricesSchema,
   setVendorPriceSchema,
   priceHistoryQuerySchema,
+  listVendorProductsQuerySchema,
 } from './products.dto';
 import {
   listProducts,
@@ -22,6 +23,7 @@ import {
   bulkUpdatePrices,
   setVendorPrice,
   getPriceHistory,
+  listVendorProducts,
 } from './products.service';
 import { sendSuccess } from '../../utils/response';
 import { AppError } from '../../utils/AppError';
@@ -216,4 +218,25 @@ export async function priceHistory(req: Request, res: Response): Promise<void> {
 
   const result = await getPriceHistory(id, parsed.data);
   sendSuccess(res, result, 'Price history retrieved');
+}
+
+// ─── GET /vendors/:id/products ────────────────────────────────
+//
+// Used by the morning price-update page. Returns the vendor's full
+// catalog (default-vendor products + ProductVendor-sourced products)
+// with the vendor's per-vendor purchasePrice included.
+
+export async function vendorProducts(req: Request, res: Response): Promise<void> {
+  const vendorId = Number(req.params.id);
+  if (Number.isNaN(vendorId) || vendorId <= 0) {
+    throw new AppError(400, 'Invalid vendor id');
+  }
+
+  const parsed = listVendorProductsQuerySchema.safeParse(req.query);
+  if (!parsed.success) {
+    throw new AppError(400, parsed.error.issues[0]?.message ?? 'Invalid query');
+  }
+
+  const result = await listVendorProducts(vendorId, parsed.data);
+  sendSuccess(res, result, 'Vendor products retrieved');
 }

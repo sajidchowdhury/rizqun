@@ -59,7 +59,9 @@ export function ProductFormDialog({
     defaultValues: {
       name: '',
       sku: '',
-      price: 0,
+      purchasePrice: 0,
+      salePrice: 0,
+      discountPrice: null,
       categoryId: 0,
       vendorId: 0,
       unit: 'pcs',
@@ -72,7 +74,12 @@ export function ProductFormDialog({
     form.reset({
       name: product?.name ?? '',
       sku: product?.sku ?? '',
-      price: product ? parseFloat(product.price) : 0,
+      purchasePrice: product ? parseFloat(product.purchasePrice) : 0,
+      salePrice: product ? parseFloat(product.salePrice) : 0,
+      discountPrice:
+        product?.discountPrice !== undefined && product.discountPrice !== null
+          ? parseFloat(product.discountPrice)
+          : null,
       categoryId: product?.categoryId ?? categories?.[0]?.id ?? 0,
       vendorId: product?.vendorId ?? vendors?.data[0]?.id ?? 0,
       unit: product?.unit ?? 'pcs',
@@ -123,13 +130,22 @@ export function ProductFormDialog({
               )}
             />
 
-            <div className="grid grid-cols-2 gap-4">
+            {/* ─── 3 prices (Phase 1, 2026-08-28) ───────────────────────
+                - purchasePrice (p.price): what we pay the vendor
+                - salePrice     (s.price): what we charge the customer
+                - discountPrice (optional): if set, active customer price
+                All on one row on desktop, stacked on mobile. */}
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               <FormField
                 control={form.control}
-                name="price"
+                name="purchasePrice"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Price (৳)</FormLabel>
+                    <FormLabel>Purchase price (৳)</FormLabel>
+                    <FormDescription className="text-[11px]">
+                      What we pay the vendor
+                    </FormDescription>
                     <FormControl>
                       <Input
                         type="number"
@@ -146,6 +162,61 @@ export function ProductFormDialog({
                 )}
               />
 
+              <FormField
+                control={form.control}
+                name="salePrice"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Sale price (৳)</FormLabel>
+                    <FormDescription className="text-[11px]">
+                      What we charge the customer
+                    </FormDescription>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        placeholder="0.00"
+                        disabled={submitting}
+                        {...field}
+                        onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="discountPrice"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Discount price (৳)</FormLabel>
+                    <FormDescription className="text-[11px]">
+                      Optional — active customer price
+                    </FormDescription>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        placeholder="No discount"
+                        disabled={submitting}
+                        value={field.value ?? ''}
+                        onChange={(e) => {
+                          const v = e.target.value.trim();
+                          field.onChange(v === '' ? null : parseFloat(v) || 0);
+                        }}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
               <FormField
                 control={form.control}
                 name="unit"

@@ -1020,3 +1020,129 @@ export async function getPriceHistory(
     }),
   };
 }
+
+// ─── List products for a specific vendor (with per-vendor purchase price)
+//
+// GET /vendors/:id/products
+//
+// Used by the morning price-update UI. Returns the vendor's full catalog:
+//   - Products where Product.vendorId = vendorId (default vendor)
+//   - Products where there's a ProductVendor row (multi-vendor sourcing)
+// De-duplicated by product id (a product can be in both sets).
+//
+// Each product includes:
+//   - The vendor's per-vendor purchasePrice (from ProductVendor, or 0 if no row yet)
+//   - The product's current salePrice, discountPrice (from Product)
+//   - The product's default vendorId (for the "default vendor" badge in the UI)
+//   - The default Product.purchasePrice (for reference, so the operator can
+//     see whether the per-vendor price differs from the default)
+//
+// Optional filters:
+//   - categoryId (filter by product category)
+//   - search (search by product name)
+//   - includeInactive (default false — usually we only show active products
+//     in the price-update workflow, but admin may want to update prices on
+//     inactive products too)
+
+export interface VendorProductRow {
+  id: number;
+  name: string;
+  brand: string | null;
+  unit: string;
+  imageUrl: string | null;
+  categoryId: number;
+  categoryName: string;
+  // The vendor's current purchase price for this product
+  // (from ProductVendor — 0 if no row exists yet)
+  vendorPurchasePrice: string;
+  // The product's default vendor (for the "default vendor" badge)
+  isDefaultVendor: boolean;
+  // Product-level prices (current values, displayed for reference)
+  purchasePrice: string;
+  salePrice: string;
+  discountPrice: string | null;
+  effectivePrice: string;
+  isActive: boolean;
+}
+
+export interface ListVendorProductsQuery {
+  categoryId?: number;
+  search?: string;
+  includeInactive?: boolean;
+  limit?: number;
+}
+
+export async function listVendorProducts(
+  vendorId: number,
+  query: ListVendorProductsQuery = {},
+): Promise<{ data: VendorProductRow[]; vendor: { id: number; name: string } }> {
+  // Validate vendor exists
+  const vendor = await prisma.vendor.findUnique({
+    where: { id: vendorId },
+    select: { id: true, name: true },
+  });
+  if (!vendor) {
+    throw new AppError(404, 'Vendor not found');
+  }
+
+  // Build the where clause:
+  //   - Products where Product.vendorId = vendorId (default vendor), OR
+  //   - Products where there's a ProductVendor row with this vendorId
+  // De-dup happens naturally because Prisma's OR returns unique rows.
+  const where: Prisma.ProductWhereInput = {
+    OR: [
+      { vendorId },
+      { productVendors: { some: { vendorId } } },
+    ],
+  };
+
+  if (!query.includeInactive) {
+    where.isActive = true;
+  }
+  if (query.categoryId) {
+    where.categoryId = query.categoryId;
+  }
+  if (query.search) {
+    where.name = { contains: query.search, mode: 'insensitive' };
+  }
+
+  const limit = Math.min(query.limit ?? 500, 1000);
+
+  const products = await prisma.product.findMany({
+    where,
+    orderBy: { name: 'asc' },
+    take: limit,
+    include: {
+      category: { select: { id: true, name: true } },
+      // Filter ProductVendor to only this vendor — we don't care about other
+      // vendors' prices here.
+      productVendors: {
+        where: { vendorId },
+        select: { purchasePrice: true, isPreferred: true },
+      },
+    },
+  });
+
+  const rows: VendorProductRow[] = products.map((p) => {
+    const pv = p.productVendors[0];
+    const effective = p.discountPrice ?? p.salePrice;
+    return {
+      id: p.id,
+      name: p.name,
+      brand: p.brand,
+      unit: p.unit,
+      imageUrl: p.imageUrl,
+      categoryId: p.categoryId,
+      categoryName: p.category?.name ?? '—',
+      vendorPurchasePrice: pv ? pv.purchasePrice.toString() : '0',
+      isDefaultVendor: p.vendorId === vendorId,
+      purchasePrice: p.purchasePrice.toString(),
+      salePrice: p.salePrice.toString(),
+      discountPrice: p.discountPrice ? p.discountPrice.toString() : null,
+      effectivePrice: effective.toString(),
+      isActive: p.isActive,
+    };
+  });
+
+  return { data: rows, vendor };
+}

@@ -107,7 +107,7 @@ export function ProductSearch({
                         {product.categoryName} · {product.vendorName}
                       </span>
                     </div>
-                    <span className="font-mono text-sm">৳{Number(product.price).toFixed(2)}</span>
+                    <span className="font-mono text-sm">৳{Number(product.effectivePrice).toFixed(2)}</span>
                   </div>
                 </CommandItem>
               ))}

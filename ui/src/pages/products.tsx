@@ -375,10 +375,13 @@ function ProductBrowseCard({
   onToggle,
   toggling,
 }: ProductBrowseCardProps) {
+  // Phase 1 (2026-08-28): the new 3-price model. `discountPrice` (if set)
+  // IS the active customer price; the strikethrough shows the original
+  // salePrice for comparison (e-commerce style).
   const url = imageUrl(product.imageUrl);
-  const hasDiscount = product.discountActive && product.originalPrice;
+  const hasDiscount = !!product.discountPrice;
   const discountPct = hasDiscount
-    ? Math.round((1 - Number(product.price) / Number(product.originalPrice)) * 100)
+    ? Math.round((1 - Number(product.discountPrice) / Number(product.salePrice)) * 100)
     : 0;
   const inactive = !product.isActive;
 
@@ -461,13 +464,13 @@ function ProductBrowseCard({
         <div className="mt-auto flex items-end justify-between gap-2 pt-1.5">
           <div className="min-w-0">
             <div className="font-mono text-sm font-semibold tabular-nums">
-              {formatBDT(Number(product.price))}
+              {formatBDT(Number(product.effectivePrice))}
             </div>
             <div className="text-[11px] text-muted-foreground">
               / {product.unit}
               {hasDiscount && (
                 <span className="ml-1 line-through">
-                  {formatBDT(Number(product.originalPrice))}
+                  {formatBDT(Number(product.salePrice))}
                 </span>
               )}
             </div>
@@ -525,10 +528,11 @@ function sortProducts(list: Product[], sort: SortKey): void {
       list.sort((a, b) => b.name.localeCompare(a.name));
       break;
     case 'price-asc':
-      list.sort((a, b) => Number(a.price) - Number(b.price));
+      // Phase 1: sort by effectivePrice (what the customer actually pays)
+      list.sort((a, b) => Number(a.effectivePrice) - Number(b.effectivePrice));
       break;
     case 'price-desc':
-      list.sort((a, b) => Number(b.price) - Number(a.price));
+      list.sort((a, b) => Number(b.effectivePrice) - Number(a.effectivePrice));
       break;
     case 'newest':
     default:

@@ -90,11 +90,14 @@ export function OrderProductCatalog({ className }: OrderProductCatalogProps) {
       return;
     }
     // New line — addItem needs the full denormalized shape.
+    // Phase 1 (2026-08-28): use `effectivePrice` (discountPrice if set,
+    // else salePrice) as the snapshot price — that's what the customer
+    // actually pays. The backend finalize endpoint does the same.
     addItem({
       productId: product.id,
       name: product.name,
-      price: product.price,
-      vendorId: product.vendorId,
+      price: product.effectivePrice,
+      vendorId: product.vendorId ?? 0,
       vendorName: product.vendor?.name ?? '—',
       categoryId: product.categoryId,
       categorySlug: product.category?.slug ?? 'other',
