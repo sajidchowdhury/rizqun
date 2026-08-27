@@ -4,6 +4,8 @@ import {
   getOrdersPerDayHandler,
   getAvgTimePerDayHandler,
   getCategoryBreakdownHandler,
+  getVendorStabilityHandler,
+  getVendorProfitabilityHandler,
 } from './dashboard.controller';
 import { asyncHandler } from '../../utils/asyncHandler';
 import { authenticate } from '../../middlewares/auth.middleware';
@@ -24,5 +26,12 @@ router.get('/avg-time-per-day', asyncHandler(getAvgTimePerDayHandler));
 
 // GET /dashboard/category-breakdown?month=2026-08
 router.get('/category-breakdown', asyncHandler(getCategoryBreakdownHandler));
+
+// Phase 5 (2026-08-28): price analytics
+// GET /dashboard/vendor-stability?days=30
+router.get('/vendor-stability', asyncHandler(getVendorStabilityHandler));
+
+// GET /dashboard/vendor-profitability?month=2026-08
+router.get('/vendor-profitability', asyncHandler(getVendorProfitabilityHandler));
 
 export default router;

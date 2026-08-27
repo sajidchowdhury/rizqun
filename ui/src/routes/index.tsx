@@ -16,6 +16,7 @@ import { NewOrderPage } from '@/pages/new-order';
 import { OrderDetailPage } from '@/pages/order-detail';
 import { RatingFormPage } from '@/pages/rating-form';
 import { PricesUpdatePage } from '@/pages/prices-update';
+import { PricesHistoryPage } from '@/pages/prices-history';
 import { NotFoundPage } from '@/pages/not-found';
 
 // ─── Public routes (no shell, no auth) ──────────────────────────────
@@ -72,6 +73,7 @@ const authedRoutes: RouteObject[] = [
           { path: 'orders/:id', element: <OrderDetailPage /> },
           { path: 'products', element: <ProductsPage /> },
           { path: 'prices/update', element: <PricesUpdatePage /> },
+          { path: 'prices/history', element: <PricesHistoryPage /> },
           { path: 'vendors', element: <VendorsPage /> },
           // super_admin-only routes — guarded by AdminRoute.
           // Sidebar already hides these nav items for operators

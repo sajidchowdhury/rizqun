@@ -74,3 +74,23 @@ export interface CategoryBreakdownPoint {
   categoryName: string;
   orderCount: number;
 }
+
+// ─── Price analytics (Phase 5, 2026-08-28) ────────────────────
+
+// GET /dashboard/vendor-stability?days=30
+// Returns per-vendor: how many price changes in the last N days + avg magnitude.
+export const vendorStabilityQuerySchema = z.object({
+  days: z.coerce.number().int().min(1).max(365).default(30),
+});
+export type VendorStabilityQuery = z.infer<typeof vendorStabilityQuerySchema>;
+
+// GET /dashboard/vendor-profitability?month=2026-08
+// Returns per-vendor: total margin from delivered orders in the month.
+export const vendorProfitabilityQuerySchema = z.object({
+  month: z
+    .string()
+    .trim()
+    .regex(/^\d{4}-\d{2}$/, 'Month must be in YYYY-MM format (e.g. 2026-08)')
+    .optional(),
+});
+export type VendorProfitabilityQuery = z.infer<typeof vendorProfitabilityQuerySchema>;

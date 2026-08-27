@@ -8,6 +8,7 @@ import {
   Tags,
   Users,
   PencilLine,
+  History,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -27,6 +28,7 @@ export const NAV_ITEMS: NavItem[] = [
   { label: 'Done', to: '/orders/done', icon: CheckCircle2 },
   { label: 'Products', to: '/products', icon: Package },
   { label: 'Update Prices', to: '/prices/update', icon: PencilLine },
+  { label: 'Price History', to: '/prices/history', icon: History },
   { label: 'Vendors', to: '/vendors', icon: Store },
   { label: 'Categories', to: '/categories', icon: Tags, adminOnly: true },
   { label: 'Users', to: '/users', icon: Users, adminOnly: true },

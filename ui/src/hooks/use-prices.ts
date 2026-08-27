@@ -7,6 +7,9 @@ import type {
   VendorProductsResponse,
   BulkUpdatePricesPayload,
   BulkUpdatePricesResult,
+  PriceHistoryResponse,
+  VendorStabilityResponse,
+  VendorProfitabilityResponse,
 } from '@/types/product';
 
 // ─── List vendor products (GET /vendors/:id/products) ─────────
@@ -143,4 +146,65 @@ export function diffPriceEdits(
   }
 
   return updates;
+}
+
+// ─── Price history (GET /products/:id/price-history) ───────────
+//
+// Phase 5: returns the audit log of every price change for one
+// product. Used by the /prices/history page's per-product chart.
+
+export function useProductPriceHistory(productId: number | 'all', enabled = true) {
+  return useQuery({
+    queryKey: ['products', 'price-history', productId] as const,
+    queryFn: async () => {
+      if (productId === 'all') {
+        return { data: [] } as PriceHistoryResponse;
+      }
+      return (await api.get<PriceHistoryResponse>(
+        `/products/${productId}/price-history`,
+      )) as PriceHistoryResponse;
+    },
+    enabled: enabled && productId !== 'all' && productId > 0,
+    staleTime: 60_000, // 1 min — history doesn't change often
+  });
+}
+
+// ─── Vendor stability (GET /dashboard/vendor-stability) ────────
+//
+// Phase 5: per-vendor price-change count + avg magnitude for the
+// last N days. Used by the /prices/history page's stability table.
+
+export function useVendorStability(days: number = 30) {
+  return useQuery({
+    queryKey: ['dashboard', 'vendor-stability', days] as const,
+    queryFn: async () => {
+      return (await api.get<VendorStabilityResponse>(
+        `/dashboard/vendor-stability?days=${days}`,
+      )) as VendorStabilityResponse;
+    },
+    staleTime: 5 * 60_000, // 5 min
+  });
+}
+
+// ─── Vendor profitability (GET /dashboard/vendor-profitability) ─
+//
+// Phase 5: per-vendor total margin from delivered orders in the
+// target month. Used by the /prices/history page's profitability table.
+
+export function useVendorProfitability(month?: string) {
+  // Default to current month if not provided
+  const now = new Date();
+  const defaultMonth = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
+  const effectiveMonth = month ?? defaultMonth;
+
+  return useQuery({
+    queryKey: ['dashboard', 'vendor-profitability', effectiveMonth] as const,
+    queryFn: async () => {
+      const qs = `?month=${encodeURIComponent(effectiveMonth)}`;
+      return (await api.get<VendorProfitabilityResponse>(
+        `/dashboard/vendor-profitability${qs}`,
+      )) as VendorProfitabilityResponse;
+    },
+    staleTime: 60_000, // 1 min
+  });
 }

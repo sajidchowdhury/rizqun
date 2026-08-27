@@ -182,5 +182,36 @@ export interface PriceHistoryResponse {
   data: PriceHistoryEntry[];
 }
 
+// ─── Vendor stability (GET /dashboard/vendor-stability) ───────────
+// Phase 5: per-vendor price-change count + avg magnitude for the last N days.
+
+export interface VendorStabilityRow {
+  vendorId: number;
+  vendorName: string;
+  changeCount: number;
+  avgChangeMagnitude: number;
+  lastChangeAt: string | null;
+}
+
+export interface VendorStabilityResponse {
+  data: VendorStabilityRow[];
+}
+
+// ─── Vendor profitability (GET /dashboard/vendor-profitability) ───
+// Phase 5: per-vendor total margin from delivered orders in the month.
+
+export interface VendorProfitabilityRow {
+  vendorId: number;
+  vendorName: string;
+  orderCount: number;
+  totalMargin: string;
+  totalRevenue: string;
+}
+
+export interface VendorProfitabilityResponse {
+  data: VendorProfitabilityRow[];
+  month: string;
+}
+
 // Re-export for convenience
 export type { VendorCategory };
