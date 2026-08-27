@@ -100,8 +100,10 @@ async function main() {
   const group = await prisma.group.findUnique({ where: { slug: groupSlug } });
   if (!group) throw new Error(`Group '${groupSlug}' not found.`);
 
-  // Find all Excel files
-  const files = fs.readdirSync(dirPath).filter((f) => f.endsWith('.xlsx') || f.endsWith('.xls'));
+  // Find all Excel files — skip temp files (~$xxx.xlsx created by Excel when open)
+  const files = fs.readdirSync(dirPath).filter(
+    (f) => (f.endsWith('.xlsx') || f.endsWith('.xls')) && !f.startsWith('~$'),
+  );
   if (files.length === 0) { console.info('No Excel files found.'); return; }
 
   console.info(`Found ${files.length} Excel file(s):\n`);
