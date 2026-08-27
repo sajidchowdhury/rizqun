@@ -77,10 +77,22 @@ export function NewOrderPage() {
       {/* Main layout:
           - Mobile: catalog full-width; cart is the floating bottom tray
           - Desktop (lg+): catalog left, sticky sidebar right with
-            customer picker + cart panel */}
-      <div className="grid gap-4 lg:grid-cols-[1fr_380px] xl:grid-cols-[1fr_400px]">
-        {/* Catalog — always full-width on its column */}
-        <OrderProductCatalog />
+            customer picker + cart panel
+
+          IMPORTANT: the left column uses `min-w-0` to defeat the classic
+          CSS Grid min-content sizing gotcha. Without it, the grid's `1fr`
+          column expands to fit the catalog's min-content width (which is
+          driven by the images' intrinsic width), making the image area
+          much taller than 4:3. With `min-w-0`, the column shrinks to the
+          available width and the image wrapper's `aspect-[4/3]` computes
+          the correct height from that width. */}
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_380px] xl:grid-cols-[minmax(0,1fr)_400px]">
+        {/* Catalog — always full-width on its column. `min-w-0` is
+            belt-and-suspenders (the minmax(0,1fr) above already does this
+            but it doesn't hurt to be explicit). */}
+        <div className="min-w-0">
+          <OrderProductCatalog />
+        </div>
 
         {/* Desktop right sidebar */}
         <aside className="hidden lg:block">
