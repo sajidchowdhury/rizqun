@@ -21,6 +21,7 @@ const LABELS: Record<string, string> = {
   done: 'Done Orders',
   new: 'New Order',
   orders: 'Orders',
+  rate: 'Rate',
   rating: 'Rating',
 };
 
@@ -39,7 +40,7 @@ function useBreadcrumbs(): Crumb[] {
   const segments = location.pathname.split('/').filter(Boolean);
 
   // Hide crumbs for the rating page (it's a public, no-shell route anyway).
-  if (segments[0] === 'rating') return [];
+  if (segments[0] === 'rating' || segments[0] === 'rate') return [];
 
   const crumbs: Crumb[] = [];
   let acc = '';

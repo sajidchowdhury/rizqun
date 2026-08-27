@@ -29,8 +29,10 @@ const publicRoutes: RouteObject[] = [
       </PublicLayout>
     ),
   },
+  // The backend generates URLs as `${appBaseUrl}/rate/:token` — so the
+  // route path must match '/rate/:token' (not '/rating/:token').
   {
-    path: '/rating/:token',
+    path: '/rate/:token',
     element: (
       <PublicLayout>
         <RatingFormPage />
