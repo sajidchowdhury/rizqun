@@ -161,6 +161,7 @@ async function main() {
       batch.push({
         name,
         sku,
+        brand: brandName || null,
         price,
         categoryId: category.id,
         vendorId,

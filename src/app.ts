@@ -85,7 +85,17 @@ app.use('/dashboard', dashboardRoutes);
 // Images are stored in public/uploads/products/ and served at
 // /uploads/products/xxx.jpg. In production, Nginx serves this path
 // directly for better performance.
-app.use('/uploads', express.static('public/uploads'));
+// The crossOrigin: false + setHeaders below override Helmet's
+// Cross-Origin-Resource-Policy header so images load correctly
+// from the backend (port 3000) when the UI runs on port 5173.
+app.use(
+  '/uploads',
+  express.static('public/uploads', {
+    setHeaders: (res) => {
+      res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+    },
+  }),
+);
 
 // ─── Health check ──────────────────────────────────────────────
 app.get('/health', async (_req: Request, res: Response) => {
