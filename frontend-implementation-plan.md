@@ -1841,9 +1841,9 @@ Phase 8 — Rating System
   ✓ 8.2  Public rating form
 
 Phase 9 — Polish & UX
-  ☐ 9.1  Loading, skeletons, toasts, error boundaries
-  ☐ 9.2  Responsive design + mobile layout
-  ☐ 9.3  Accessibility (ARIA, keyboard nav)
+  ✓ 9.1  Loading, skeletons, toasts, error boundaries
+  ✓ 9.2  Responsive design + mobile layout
+  ✓ 9.3  Accessibility (ARIA, keyboard nav)
 
 Phase 10 — Production Build
   ☐ 10.1 Vite production build + bundle analysis
