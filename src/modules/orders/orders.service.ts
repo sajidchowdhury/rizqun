@@ -130,11 +130,20 @@ export async function finalizeOrder(
   const hasAll = ctx.userCategoryAccess.includes('all');
 
   // ─── 1. Fetch all referenced products in one query ──────────
+  // We include category → group → section so we can check the user's
+  // categoryAccess (which contains SECTION slugs like 'grocery',
+  // 'medicine', 'services') against the product's section.
   const productIds = input.items.map((i) => i.productId);
   const products = await prisma.product.findMany({
     where: { id: { in: productIds } },
     include: {
-      category: { select: { slug: true, name: true } },
+      category: {
+        select: {
+          slug: true,
+          name: true,
+          group: { select: { section: { select: { slug: true } } } },
+        },
+      },
       vendor: {
         select: { id: true, name: true, phone: true, whatsappNumber: true, isActive: true },
       },
@@ -166,9 +175,13 @@ export async function finalizeOrder(
       continue;
     }
 
-    if (!hasAll && !ctx.userCategoryAccess.includes(product.category.slug)) {
+    // Check the user's categoryAccess against the product's SECTION slug
+    // (not the category slug — categoryAccess contains section slugs like
+    // 'grocery', 'medicine', 'services').
+    const sectionSlug = product.category?.group?.section?.slug;
+    if (!hasAll && (!sectionSlug || !ctx.userCategoryAccess.includes(sectionSlug))) {
       errors.push(
-        `Item ${i + 1}: you do not have access to the '${product.category.slug}' category (product: ${product.name})`,
+        `Item ${i + 1}: you do not have access to the '${sectionSlug ?? 'unknown'}' section (product: ${product.name})`,
       );
     }
   }
@@ -1041,7 +1054,14 @@ export async function addOrderItem(
   const product = await prisma.product.findUnique({
     where: { id: input.productId },
     include: {
-      category: { select: { slug: true } },
+      // Include category → group → section so we can check the user's
+      // categoryAccess (section slugs) against the product's section.
+      category: {
+        select: {
+          slug: true,
+          group: { select: { section: { select: { slug: true } } } },
+        },
+      },
       vendor: {
         select: { id: true, name: true, phone: true, whatsappNumber: true, isActive: true },
       },
@@ -1060,11 +1080,15 @@ export async function addOrderItem(
     throw new AppError(400, `Vendor for "${product.name}" is deactivated`);
   }
 
+  // Check the user's categoryAccess against the product's SECTION slug
+  // (categoryAccess contains section slugs like 'grocery', 'medicine',
+  // 'services' — not category slugs).
   const hasAll = ctx.userCategoryAccess.includes('all');
-  if (!hasAll && !ctx.userCategoryAccess.includes(product.category.slug)) {
+  const sectionSlug = product.category?.group?.section?.slug;
+  if (!hasAll && (!sectionSlug || !ctx.userCategoryAccess.includes(sectionSlug))) {
     throw new AppError(
       403,
-      `You do not have access to the '${product.category.slug}' category (product: ${product.name})`,
+      `You do not have access to the '${sectionSlug ?? 'unknown'}' section (product: ${product.name})`,
     );
   }
 

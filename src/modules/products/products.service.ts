@@ -142,18 +142,22 @@ export async function listProducts(
   const where: Prisma.ProductWhereInput = {};
 
   // ─── Category scope (per-user categoryAccess) ───────────────
+  // The user's categoryAccess contains SECTION slugs ('grocery',
+  // 'medicine', 'services'), not Category slugs (which are dynamic
+  // like 'candy-chocolate', 'general-medicine', 'spices', etc.).
+  // So we filter by the product's category → group → section slug.
+  //
   // If the user has 'all' access, no filter is applied. Otherwise,
-  // restrict products to those whose category slug is in the user's
-  // allowed list. This is the same logic used by `searchProducts`.
+  // restrict products to those whose section slug is in the user's
+  // allowed list. Empty allowed list → no products (no access).
   if (categoryFilter && !categoryFilter.hasAll) {
     if (categoryFilter.slugs.length === 0) {
-      // User has no access to any category → return no products
       return {
         data: [],
         pagination: { page: query.page, limit: query.limit, total: 0, totalPages: 0 },
       };
     }
-    where.category = { slug: { in: categoryFilter.slugs } };
+    where.category = { group: { section: { slug: { in: categoryFilter.slugs } } } };
   }
 
   if (query.categoryId) {
@@ -535,7 +539,9 @@ async function searchFts(
 
   if (slugs.length === 0) return [];
 
-  // With category filter — use Prisma.sql with parameterized array
+  // With category filter — use Prisma.sql with parameterized array.
+  // NOTE: `slugs` here are SECTION slugs (grocery/medicine/services),
+  // not Category slugs — so we join through to the section + filter there.
   return prisma.$queryRaw<SearchResultRow[]>`
     SELECT
       p.id, p.name,
@@ -554,9 +560,11 @@ async function searchFts(
     CROSS JOIN to_tsquery('english', ${tsQueryStr}) AS q
     LEFT JOIN vendors   v ON v.id = p.vendor_id
     JOIN  categories c ON c.id = p.category_id
+    JOIN  groups     g ON g.id = c.group_id
+    JOIN  sections   s ON s.id = g.section_id
     WHERE p.search_vector @@ q
       AND p.is_active = true
-      AND c.slug = ANY(${slugs}::text[])
+      AND s.slug = ANY(${slugs}::text[])
     ORDER BY rank DESC, p.id ASC
     LIMIT ${limit};
   `;
@@ -596,6 +604,7 @@ async function searchIlike(
 
   if (slugs.length === 0) return [];
 
+  // With section filter — same join-through-to-section approach as FTS.
   return prisma.$queryRaw<SearchResultRow[]>`
     SELECT
       p.id, p.name,
@@ -613,9 +622,11 @@ async function searchIlike(
     FROM products p
     LEFT JOIN vendors   v ON v.id = p.vendor_id
     JOIN  categories c ON c.id = p.category_id
+    JOIN  groups     g ON g.id = c.group_id
+    JOIN  sections   s ON s.id = g.section_id
     WHERE p.name ILIKE ${pattern}
       AND p.is_active = true
-      AND c.slug = ANY(${slugs}::text[])
+      AND s.slug = ANY(${slugs}::text[])
     ORDER BY p.name ASC, p.id ASC
     LIMIT ${limit};
   `;
@@ -1122,14 +1133,16 @@ export async function listVendorProducts(
   };
 
   // ─── Category scope (per-user categoryAccess) ───────────────
-  // Restrict products to the user's allowed categories so an operator
+  // Restrict products to the user's allowed sections so an operator
   // with grocery-only access can't see medicine products even when
   // picking a vendor that supplies both.
+  // Note: categoryAccess contains SECTION slugs (grocery/medicine/
+  // services), not Category slugs — so we filter via category.group.section.
   if (categoryFilter && !categoryFilter.hasAll) {
     if (categoryFilter.slugs.length === 0) {
       return { data: [], vendor: { id: vendor.id, name: vendor.name } };
     }
-    where.category = { slug: { in: categoryFilter.slugs } };
+    where.category = { group: { section: { slug: { in: categoryFilter.slugs } } } };
   }
 
   if (!query.includeInactive) {
