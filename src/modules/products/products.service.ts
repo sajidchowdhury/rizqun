@@ -20,6 +20,14 @@ import type {
 // uses `effectivePrice` for display + cart math; the products list page
 // shows all 3 raw prices so the operator can audit margins.
 
+// CategoryFilter — shared between listProducts + searchProducts. Set by
+// the `categoryScope` middleware from the user's `categoryAccess`. Lives
+// here (top of file) so both functions can reference it.
+interface CategoryFilter {
+  hasAll: boolean;
+  slugs: string[];
+}
+
 export interface PublicProduct {
   id: number;
   name: string;
@@ -127,8 +135,26 @@ export interface PaginatedProducts {
   };
 }
 
-export async function listProducts(query: ListProductsQuery): Promise<PaginatedProducts> {
+export async function listProducts(
+  query: ListProductsQuery,
+  categoryFilter?: CategoryFilter,
+): Promise<PaginatedProducts> {
   const where: Prisma.ProductWhereInput = {};
+
+  // ─── Category scope (per-user categoryAccess) ───────────────
+  // If the user has 'all' access, no filter is applied. Otherwise,
+  // restrict products to those whose category slug is in the user's
+  // allowed list. This is the same logic used by `searchProducts`.
+  if (categoryFilter && !categoryFilter.hasAll) {
+    if (categoryFilter.slugs.length === 0) {
+      // User has no access to any category → return no products
+      return {
+        data: [],
+        pagination: { page: query.page, limit: query.limit, total: 0, totalPages: 0 },
+      };
+    }
+    where.category = { slug: { in: categoryFilter.slugs } };
+  }
 
   if (query.categoryId) {
     where.categoryId = query.categoryId;
@@ -142,9 +168,12 @@ export async function listProducts(query: ListProductsQuery): Promise<PaginatedP
     where.isActive = query.isActive;
   }
 
-  // Category slug filter (used by category-scope middleware or direct query)
+  // Category slug filter (explicit `?category=` query param —
+  // intersected with the user's categoryAccess above)
   if (query.category) {
-    where.category = { slug: query.category };
+    where.category = where.category
+      ? { AND: [where.category, { slug: query.category }] }
+      : { slug: query.category };
   }
 
   // ILIKE search on name (full-text search endpoint comes in Session 2.4)
@@ -391,11 +420,6 @@ export async function deleteProduct(id: number): Promise<{ id: number; isActive:
 
 // Number of FTS results below which we run the ILIKE fallback.
 const FTS_FALLBACK_THRESHOLD = 5;
-
-interface CategoryFilter {
-  hasAll: boolean;
-  slugs: string[];
-}
 
 /**
  * Convert a user-typed query string into a Postgres tsquery.
@@ -1075,6 +1099,7 @@ export interface ListVendorProductsQuery {
 export async function listVendorProducts(
   vendorId: number,
   query: ListVendorProductsQuery = {},
+  categoryFilter?: CategoryFilter,
 ): Promise<{ data: VendorProductRow[]; vendor: { id: number; name: string } }> {
   // Validate vendor exists
   const vendor = await prisma.vendor.findUnique({
@@ -1095,6 +1120,17 @@ export async function listVendorProducts(
       { productVendors: { some: { vendorId } } },
     ],
   };
+
+  // ─── Category scope (per-user categoryAccess) ───────────────
+  // Restrict products to the user's allowed categories so an operator
+  // with grocery-only access can't see medicine products even when
+  // picking a vendor that supplies both.
+  if (categoryFilter && !categoryFilter.hasAll) {
+    if (categoryFilter.slugs.length === 0) {
+      return { data: [], vendor: { id: vendor.id, name: vendor.name } };
+    }
+    where.category = { slug: { in: categoryFilter.slugs } };
+  }
 
   if (!query.includeInactive) {
     where.isActive = true;

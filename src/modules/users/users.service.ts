@@ -127,6 +127,8 @@ export async function createUser(input: CreateUserInput): Promise<PublicUser> {
       passwordHash,
       role: input.role,
       categoryAccess: input.categoryAccess,
+      // Optional on create — defaults to true in the DB schema if omitted.
+      ...(input.isActive !== undefined && { isActive: input.isActive }),
     },
   });
 

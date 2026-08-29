@@ -527,7 +527,7 @@ export async function importProducts(input: ImportInput): Promise<ImportPreview 
           },
         });
         imported++;
-      } catch (err) {
+      } catch (_err) {
         errors++;
         // Continue with the rest of the batch
       }

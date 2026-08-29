@@ -12,6 +12,10 @@ export const createUserSchema = z.strictObject({
   password: z.string().min(8, 'Password must be at least 8 characters').max(128),
   role: z.enum(['user', 'super_admin']).default('user'),
   categoryAccess: z.array(z.string()).default([]),
+  // isActive is optional on create — defaults to true in the DB schema.
+  // The frontend sends it (the "Active" toggle in the form), so we accept
+  // it here instead of rejecting with "Unrecognized key(s) in object".
+  isActive: z.boolean().optional(),
 });
 
 export type CreateUserInput = z.infer<typeof createUserSchema>;

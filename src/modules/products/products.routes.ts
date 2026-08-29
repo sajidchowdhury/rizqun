@@ -37,7 +37,10 @@ router.post('/bulk-update-prices', asyncHandler(bulkUpdatePricesHandler));
 router.post('/import', requireRole('super_admin'), importUpload, asyncHandler(importHandler));
 
 // Read access — any authed user
-router.get('/', asyncHandler(list));
+// `categoryScope` filters products by the user's categoryAccess so
+// operators see only products in their allowed categories. Super
+// admins / users with ['all'] see everything.
+router.get('/', categoryScope, asyncHandler(list));
 router.get('/:id', asyncHandler(getOne));
 router.get('/:id/recommendations', asyncHandler(recommendations));
 router.get('/:id/price-history', asyncHandler(priceHistory));

@@ -35,7 +35,9 @@ export async function list(req: Request, res: Response): Promise<void> {
     throw new AppError(400, parsed.error.issues[0]?.message ?? 'Invalid query');
   }
 
-  const result = await listProducts(parsed.data);
+  // Pass the user's category filter (set by the `categoryScope` middleware)
+  // so non-admin users see only products in their allowed categories.
+  const result = await listProducts(parsed.data, req.categoryFilter);
   sendSuccess(res, result, 'Products retrieved');
 }
 
@@ -237,6 +239,9 @@ export async function vendorProducts(req: Request, res: Response): Promise<void>
     throw new AppError(400, parsed.error.issues[0]?.message ?? 'Invalid query');
   }
 
-  const result = await listVendorProducts(vendorId, parsed.data);
+  // Pass the user's category filter (set by `categoryScope` middleware on
+  // the vendors router) so an operator with grocery-only access can't see
+  // medicine products even when picking a vendor that supplies both.
+  const result = await listVendorProducts(vendorId, parsed.data, req.categoryFilter);
   sendSuccess(res, result, 'Vendor products retrieved');
 }

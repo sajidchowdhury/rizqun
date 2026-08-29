@@ -4,6 +4,7 @@ import { vendorProducts } from '../products/products.controller';
 import { asyncHandler } from '../../utils/asyncHandler';
 import { authenticate } from '../../middlewares/auth.middleware';
 import { requireRole } from '../../middlewares/role.middleware';
+import { categoryScope } from '../../middlewares/category-scope.middleware';
 
 const router = Router();
 
@@ -13,10 +14,11 @@ router.use(authenticate);
 // Read access — any authed user can list/get vendors
 router.get('/', asyncHandler(list));
 router.get('/:id', asyncHandler(getOne));
-// Vendor's full catalog (for the morning price-update UI). Returns the
-// products this vendor supplies (either as default vendor or via
-// ProductVendor) with the vendor's per-vendor purchasePrice included.
-router.get('/:id/products', asyncHandler(vendorProducts));
+// Vendor's full catalog (for the morning price-update UI). `categoryScope`
+// filters products by the user's categoryAccess so an operator with
+// grocery-only access can't see medicine products even when picking a
+// vendor that supplies both.
+router.get('/:id/products', categoryScope, asyncHandler(vendorProducts));
 
 // Write access — super_admin only
 router.post('/', requireRole('super_admin'), asyncHandler(create));
