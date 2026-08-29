@@ -11,6 +11,7 @@ import { validateCustomer } from '@/lib/customer-validation';
 import { OrderProductCatalog } from '@/components/orders/order-product-catalog';
 import { CustomerPicker } from '@/components/orders/customer-picker';
 import { CartPanel } from '@/components/orders/cart-panel';
+import { PushSellSuggestions } from '@/components/orders/push-sell-suggestions';
 
 export function NewOrderPage() {
   const { items, customer, deliveryFee, totals, itemCount, clearAll } = useCart();
@@ -192,6 +193,15 @@ function CartOffcanvas({
                 <h3 className="mb-3 text-sm font-semibold">Customer</h3>
                 <CustomerPicker />
               </div>
+
+              <div className="h-px bg-border" />
+
+              {/* Smart push-sell suggestions — "would you also like X?"
+                  Shows when the cart has items + the backend has suggestions
+                  (co-purchase history / essentials / discounts). Each
+                  suggestion is a compact row with image + name + reason
+                  badge + Add button. Discounted items get a "Save ৳X" badge. */}
+              <PushSellSuggestions />
 
               <div className="h-px bg-border" />
 

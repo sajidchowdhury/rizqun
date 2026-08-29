@@ -254,3 +254,41 @@ export function useDoneOrders(query: DoneOrdersQuery = {}) {
     },
   });
 }
+
+// ─── Push-sell suggestions (POST /orders/suggestions) ──────────
+//
+// Smart cross-sell. Given the current cart contents (list of productIds),
+// returns ranked additional products the customer might also want,
+// based on co-purchase history + essentials + active discounts.
+//
+// `productIds` is the source of truth — the hook refetches whenever the
+// cart changes. We serialize the array as JSON body (POST, not GET) so
+// the request can carry many productIds without URL-length limits.
+
+import type { OrderSuggestionsResponse, SuggestedProduct } from '@/types/product';
+
+export function useOrderSuggestions(productIds: number[], enabled = true) {
+  // Sort + dedup so the query key is stable across re-renders (otherwise
+  // every cart mutation would refetch even if the set of ids is the same).
+  const stableKey = [...productIds].sort((a, b) => a - b).join(',');
+
+  return useQuery({
+    queryKey: ['orders', 'suggestions', stableKey] as const,
+    queryFn: async () => {
+      if (productIds.length === 0) {
+        return { data: [] } as OrderSuggestionsResponse;
+      }
+      return (await api.post<OrderSuggestionsResponse>('/orders/suggestions', {
+        productIds,
+        limit: 8,
+      })) as OrderSuggestionsResponse;
+    },
+    // Only fetch when the cart has at least 1 item (no suggestions for
+    // an empty cart) and the consumer has explicitly enabled the hook.
+    enabled: enabled && productIds.length > 0,
+    staleTime: 30_000, // 30s — co-purchase stats don't change fast
+  });
+}
+
+// Re-export the type for convenience
+export type { SuggestedProduct };

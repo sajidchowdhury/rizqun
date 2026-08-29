@@ -215,5 +215,26 @@ export interface VendorProfitabilityResponse {
   month: string;
 }
 
+// ─── Push-sell suggestions (POST /orders/suggestions) ────────────
+//
+// Returned by the smart push-sell endpoint. Extends Product with the
+// suggestion reason + co-purchase count + savings amount for the UI.
+
+export type SuggestionReason = 'co-purchase' | 'essential' | 'discount';
+
+export interface SuggestedProduct extends Product {
+  suggestionReason: SuggestionReason;
+  /** Co-purchase count — how many past orders contain this product
+   *  alongside any product in the cart. 0 for essentials/discounts. */
+  coPurchaseCount: number;
+  /** Savings amount as a string (salePrice - discountPrice). '0' if
+   *  no discount. The UI shows "Save ৳X" when > 0. */
+  savings: string;
+}
+
+export interface OrderSuggestionsResponse {
+  data: SuggestedProduct[];
+}
+
 // Re-export for convenience
 export type { VendorCategory };

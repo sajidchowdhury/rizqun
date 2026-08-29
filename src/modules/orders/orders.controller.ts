@@ -1,4 +1,5 @@
 import type { Request, Response } from 'express';
+import { z } from 'zod';
 import {
   finalizeOrderSchema,
   listOrdersQuerySchema,
@@ -26,6 +27,7 @@ import {
   generateRatingLink,
   changeItemVendor,
 } from './orders.service';
+import { getOrderSuggestions } from './order-suggestions.service';
 import { sendSuccess } from '../../utils/response';
 import { AppError } from '../../utils/AppError';
 
@@ -344,4 +346,32 @@ export async function changeItemVendorHandler(req: Request, res: Response): Prom
 
   const order = await changeItemVendor(orderId, itemId, parsed.data, { userId, role });
   sendSuccess(res, { order }, 'Vendor updated');
+}
+
+// ─── POST /orders/suggestions ────────────────────────────────
+//
+// Smart push-sell suggestions. Given the current cart contents
+// (a list of productIds), returns ranked additional products the
+// customer might also want, based on:
+//   1. Co-purchase history (most-often-ordered-together)
+//   2. Essentials (curated household necessities)
+//   3. Active discounts (highlighted with a "Save ৳X" badge)
+//
+// Used by the New Order page's cart offcanvas — when the operator is
+// about to finalize, the suggestions appear above the Finalize button
+// so they can offer them to the customer ("would you also like X?").
+
+const orderSuggestionsSchema = z.strictObject({
+  productIds: z.array(z.number().int().positive()).min(0).max(100),
+  limit: z.number().int().min(1).max(20).optional(),
+});
+
+export async function suggestionsHandler(req: Request, res: Response): Promise<void> {
+  const parsed = orderSuggestionsSchema.safeParse(req.body);
+  if (!parsed.success) {
+    throw new AppError(400, parsed.error.issues[0]?.message ?? 'Invalid input');
+  }
+
+  const result = await getOrderSuggestions(parsed.data);
+  sendSuccess(res, result, 'Suggestions retrieved');
 }
