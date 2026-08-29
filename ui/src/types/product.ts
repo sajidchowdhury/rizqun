@@ -92,8 +92,10 @@ export interface ProductSearchResult {
   discountPrice: string | null;
   effectivePrice: string;
   unit: string;
-  vendorId: number;
-  vendorName: string;
+  // Vendor fields are nullable because the FTS/ILIKE search uses LEFT JOIN
+  // vendors — products with no vendor still appear in search results.
+  vendorId: number | null;
+  vendorName: string | null;
   vendorWhatsappNumber: string | null;
   categoryId: number;
   categorySlug: string;

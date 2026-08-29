@@ -28,7 +28,7 @@ interface CartPanelProps {
   busy?: boolean;
 }
 
-function CartPanel({
+export function CartPanel({
   onFinalize,
   canFinalize,
   isFinalizing,

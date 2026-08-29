@@ -43,6 +43,8 @@ export function searchResultToCardData(p: ProductSearchResult): CatalogCardData 
     discountActive: !!p.discountPrice,
     genericName: p.genericName,
     categoryName: p.categoryName,
-    vendorName: p.vendorName,
+    // vendorName is now nullable (LEFT JOIN) — fall back to '—' so the
+    // card never shows null/undefined.
+    vendorName: p.vendorName ?? '—',
   };
 }

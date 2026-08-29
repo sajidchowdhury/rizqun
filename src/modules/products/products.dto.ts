@@ -118,8 +118,10 @@ export interface SearchResultRow {
   // otherwise salePrice). Frontend uses this for cart math + display.
   effectivePrice: string;
   unit: string;
-  vendorId: number;
-  vendorName: string;
+  // Vendor fields are nullable because the FTS/ILIKE search now uses
+  // LEFT JOIN vendors (so products with no vendor still appear).
+  vendorId: number | null;
+  vendorName: string | null;
   vendorWhatsappNumber: string | null;
   categoryId: number;
   categorySlug: string;

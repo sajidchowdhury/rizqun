@@ -1,20 +1,19 @@
 import { useMemo, useState } from 'react';
-import { Check, Plus, User } from 'lucide-react';
+import { ShoppingCart, X } from 'lucide-react';
+import { Dialog as DialogPrimitive } from 'radix-ui';
 
 import { cn } from '@/lib/utils';
-import { validateCustomer } from '@/lib/customer-validation';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogPortal, DialogOverlay, DialogTitle } from '@/components/ui/dialog';
 import { useCart } from '@/hooks/use-cart';
 import { useFinalizeOrder } from '@/hooks/use-orders';
 import { formatBDT } from '@/contexts/cart-store';
+import { validateCustomer } from '@/lib/customer-validation';
 import { OrderProductCatalog } from '@/components/orders/order-product-catalog';
 import { CustomerPicker } from '@/components/orders/customer-picker';
-import { CartSidebar, MobileCartTray } from '@/components/orders/cart-panel';
+import { CartPanel } from '@/components/orders/cart-panel';
 
 export function NewOrderPage() {
-  const { items, customer, deliveryFee, subtotal, totals, itemCount, clearAll } = useCart();
+  const { items, customer, deliveryFee, totals, itemCount, clearAll } = useCart();
   const finalizeOrder = useFinalizeOrder();
 
   // Validation is derived from the cart store's customer info — no extra
@@ -39,6 +38,9 @@ export function NewOrderPage() {
       {
         onSuccess: () => {
           clearAll();
+          // Close the cart offcanvas after a successful finalize so the
+          // operator sees the "Order created" toast + gets sent to /orders/pending
+          setCartOpen(false);
         },
       },
     );
@@ -50,75 +52,67 @@ export function NewOrderPage() {
     ? 'Add a product to finalize'
     : `Finalize order · ${itemCount} item${itemCount === 1 ? '' : 's'} · ${formatBDT(totals.total)}`;
 
+  // Cart offcanvas state — open when the floating cart button is clicked
+  const [cartOpen, setCartOpen] = useState(false);
+
   return (
     <div className="flex flex-col gap-4 pb-24 sm:pb-0">
       {/* Header */}
-      <header className="flex flex-col gap-3">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight">New Order</h1>
-            <p className="text-sm text-muted-foreground">
-              Browse, search, and add to the cart — then finalize to send it to the kitchen.
-            </p>
-          </div>
-          <div className="hidden items-center gap-1 rounded-full border bg-background px-3 py-1.5 text-xs text-muted-foreground sm:flex">
-            <span>Subtotal</span>
-            <span className="font-mono font-semibold tabular-nums text-foreground">
-              {formatBDT(subtotal)}
-            </span>
-          </div>
+      <header className="flex items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">New Order</h1>
+          <p className="text-sm text-muted-foreground">
+            Search products, add to cart. When the call wraps up, open the cart to fill customer info + finalize.
+          </p>
+        </div>
+        <div className="hidden items-center gap-1 rounded-full border bg-background px-3 py-1.5 text-xs text-muted-foreground sm:flex">
+          <span>Subtotal</span>
+          <span className="font-mono font-semibold tabular-nums text-foreground">
+            {formatBDT(totals.subtotal)}
+          </span>
         </div>
       </header>
 
-      {/* Mobile customer pill — opens the CustomerPicker in a bottom
-          sheet so the catalog can use the full mobile viewport. */}
-      <MobileCustomerPill name={customer.name} phone={customer.phone} />
-
-      {/* Main layout:
-          - Mobile: catalog full-width; cart is the floating bottom tray
-          - Desktop (lg+): catalog left, sticky sidebar right with
-            customer picker + cart panel
-
-          IMPORTANT: the left column uses `min-w-0` to defeat the classic
-          CSS Grid min-content sizing gotcha. Without it, the grid's `1fr`
-          column expands to fit the catalog's min-content width (which is
-          driven by the images' intrinsic width), making the image area
-          much taller than 4:3. With `min-w-0`, the column shrinks to the
-          available width and the image wrapper's `aspect-[4/3]` computes
-          the correct height from that width. */}
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_380px] xl:grid-cols-[minmax(0,1fr)_400px]">
-        {/* Catalog — always full-width on its column. `min-w-0` is
-            belt-and-suspenders (the minmax(0,1fr) above already does this
-            but it doesn't hurt to be explicit). */}
-        <div className="min-w-0">
-          <OrderProductCatalog />
-        </div>
-
-        {/* Desktop right sidebar */}
-        <aside className="hidden lg:block">
-          <div className="space-y-4">
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base">Customer</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <CustomerPicker />
-              </CardContent>
-            </Card>
-            <CartSidebar
-              onFinalize={handleFinalize}
-              canFinalize={canFinalize}
-              isFinalizing={finalizeOrder.isPending}
-              finalizeLabel={finalizeLabel}
-              busy={finalizeOrder.isPending}
-            />
-          </div>
-        </aside>
+      {/* Catalog — full-width (no more right sidebar with customer card).
+          The catalog grid uses 5 columns on xl so the cards match the
+          /products page. The grid is wrapped in `min-w-0` to defeat the
+          CSS Grid min-content sizing gotcha (see commit 0ce22c8). */}
+      <div className="min-w-0">
+        <OrderProductCatalog />
       </div>
 
-      {/* Mobile cart tray — floating button + slide-up sheet. Renders null
-          when the cart is empty so the screen stays uncluttered. */}
-      <MobileCartTray
+      {/* Floating cart button — bottom-left, persistent.
+          Shows the cart count + total. Hidden when cart is empty (no
+          clutter on first load) and when the offcanvas is open (the
+          offcanvas has its own header). */}
+      {itemCount > 0 && !cartOpen && (
+        <button
+          type="button"
+          onClick={() => setCartOpen(true)}
+          className="fixed bottom-4 left-4 z-30 flex items-center gap-3 rounded-full bg-commerce px-4 py-3 text-commerce-foreground shadow-lg transition-transform active:scale-[0.97]"
+          aria-label="Open cart"
+        >
+          <span className="relative">
+            <ShoppingCart className="size-5" />
+            <span className="absolute -right-2 -top-2 inline-flex size-5 items-center justify-center rounded-full bg-commerce-foreground text-[11px] font-bold text-commerce">
+              {itemCount}
+            </span>
+          </span>
+          <span className="hidden text-sm font-semibold sm:inline">View cart</span>
+          <span className="font-mono text-sm font-semibold tabular-nums">
+            {formatBDT(totals.total)}
+          </span>
+        </button>
+      )}
+
+      {/* Cart offcanvas — slide-over from the right.
+          Contains: customer picker + cart panel with line items, totals,
+          delivery fee, and the finalize button. Built on Radix Dialog
+          with custom positioning (anchored right, slides in from right). */}
+      <CartOffcanvas
+        open={cartOpen}
+        onOpenChange={setCartOpen}
+        itemCount={itemCount}
         onFinalize={handleFinalize}
         canFinalize={canFinalize}
         isFinalizing={finalizeOrder.isPending}
@@ -129,78 +123,93 @@ export function NewOrderPage() {
   );
 }
 
-// ─── Mobile customer pill ──────────────────────────────────────
+// ─── Cart offcanvas (slide-over from the right) ───────────────
 //
-// Compact "Customer" toggle that opens the CustomerPicker in a bottom
-// sheet on mobile. Renders as a horizontal pill row so it doesn't eat
-// vertical space the catalog needs.
+// Built on Radix Dialog primitives (same as the existing mobile cart tray)
+// but anchored to the right edge of the screen, sliding in from the right.
+// Contains the customer picker + cart panel + finalize button.
 
-interface MobileCustomerPillProps {
-  name: string;
-  phone: string;
+interface CartOffcanvasProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  itemCount: number;
+  onFinalize: () => void;
+  canFinalize: boolean;
+  isFinalizing: boolean;
+  finalizeLabel: string;
+  busy?: boolean;
 }
 
-function MobileCustomerPill({ name, phone }: MobileCustomerPillProps) {
-  const [open, setOpen] = useState(false);
-  const filled = name.trim().length > 0 || phone.trim().length > 0;
-
+function CartOffcanvas({
+  open,
+  onOpenChange,
+  itemCount,
+  onFinalize,
+  canFinalize,
+  isFinalizing,
+  finalizeLabel,
+  busy,
+}: CartOffcanvasProps) {
   return (
-    <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className={cn(
-          'flex items-center gap-2 rounded-xl border bg-card px-3 py-2.5 text-left shadow-sm transition-colors',
-          'hover:bg-accent lg:hidden',
-        )}
-      >
-        <div className="flex size-8 items-center justify-center rounded-full bg-commerce-soft text-commerce-soft-foreground">
-          <User className="size-4" />
-        </div>
-        <div className="min-w-0 flex-1">
-          {filled ? (
-            <>
-              <div className="truncate text-sm font-medium">
-                {name || <span className="text-muted-foreground">No name</span>}
-              </div>
-              {phone && (
-                <div className="truncate font-mono text-xs text-muted-foreground">
-                  {phone}
-                </div>
-              )}
-            </>
-          ) : (
-            <div className="text-sm font-medium">Select or add customer</div>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogPortal>
+        <DialogOverlay />
+        <DialogPrimitive.Content
+          className={cn(
+            // Anchor to the right edge, slide in from the right.
+            'fixed inset-y-0 right-0 z-50 flex w-full max-w-md flex-col gap-0 border-l bg-background p-0 shadow-lg outline-none',
+            'data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right data-[state=open]:animate-in data-[state=open]:slide-in-from-right',
+            'duration-300',
           )}
-        </div>
-        {filled ? (
-          <span className="rounded-full bg-commerce-soft px-2 py-0.5 text-[11px] font-medium text-commerce-soft-foreground">
-            Edit
-          </span>
-        ) : (
-          <Plus className="size-4 text-muted-foreground" />
-        )}
-      </button>
-
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="top-auto bottom-0 left-0 right-0 max-w-none translate-x-0 translate-y-0 rounded-t-2xl rounded-b-none p-0 sm:max-w-none">
+        >
+          {/* Header */}
           <div className="flex items-center justify-between border-b px-4 py-3">
-            <DialogTitle className="text-base font-semibold">Customer</DialogTitle>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setOpen(false)}
-              className="rounded-full"
+            <DialogTitle className="flex items-center gap-2 text-base font-semibold">
+              <ShoppingCart className="size-4" />
+              Cart
+              {itemCount > 0 && (
+                <span className="rounded-full bg-commerce px-2 py-0.5 text-[11px] font-semibold text-commerce-foreground">
+                  {itemCount}
+                </span>
+              )}
+            </DialogTitle>
+            <DialogPrimitive.Close
+              className="rounded-full p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              aria-label="Close cart"
             >
-              <Check className="size-4" />
-              Done
-            </Button>
+              <X className="size-4" />
+            </DialogPrimitive.Close>
           </div>
-          <div className="max-h-[70vh] overflow-y-auto p-4">
-            <CustomerPicker />
+
+          {/* Body — scrollable. Contains the customer picker + cart panel. */}
+          <div className="flex-1 overflow-y-auto">
+            <div className="space-y-4 p-4">
+              {/* Customer picker — search repeat customers + new customer form.
+                  Shown first because the operator fills this in last (after
+                  adding all the products), so it's at the top of the cart
+                  offcanvas. */}
+              <div>
+                <h3 className="mb-3 text-sm font-semibold">Customer</h3>
+                <CustomerPicker />
+              </div>
+
+              <div className="h-px bg-border" />
+
+              {/* Cart line items + totals + finalize button */}
+              <div>
+                <h3 className="mb-3 text-sm font-semibold">Order summary</h3>
+                <CartPanel
+                  onFinalize={onFinalize}
+                  canFinalize={canFinalize}
+                  isFinalizing={isFinalizing}
+                  finalizeLabel={finalizeLabel}
+                  busy={busy}
+                />
+              </div>
+            </div>
           </div>
-        </DialogContent>
-      </Dialog>
-    </>
+        </DialogPrimitive.Content>
+      </DialogPortal>
+    </Dialog>
   );
 }

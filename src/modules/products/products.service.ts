@@ -501,8 +501,8 @@ async function searchFts(
         ts_rank(p.search_vector, q) AS rank, 'fts' AS source
       FROM products p
       CROSS JOIN to_tsquery('english', ${tsQueryStr}) AS q
-      JOIN vendors v   ON v.id = p.vendor_id
-      JOIN categories c ON c.id = p.category_id
+      LEFT JOIN vendors   v ON v.id = p.vendor_id
+      JOIN  categories c ON c.id = p.category_id
       WHERE p.search_vector @@ q AND p.is_active = true
       ORDER BY rank DESC, p.id ASC
       LIMIT ${limit};
@@ -528,8 +528,8 @@ async function searchFts(
       ts_rank(p.search_vector, q) AS rank, 'fts' AS source
     FROM products p
     CROSS JOIN to_tsquery('english', ${tsQueryStr}) AS q
-    JOIN vendors v   ON v.id = p.vendor_id
-    JOIN categories c ON c.id = p.category_id
+    LEFT JOIN vendors   v ON v.id = p.vendor_id
+    JOIN  categories c ON c.id = p.category_id
     WHERE p.search_vector @@ q
       AND p.is_active = true
       AND c.slug = ANY(${slugs}::text[])
@@ -562,8 +562,8 @@ async function searchIlike(
         p.generic_name AS "genericName",
         0.0::float AS rank, 'ilike' AS source
       FROM products p
-      JOIN vendors v   ON v.id = p.vendor_id
-      JOIN categories c ON c.id = p.category_id
+      LEFT JOIN vendors   v ON v.id = p.vendor_id
+      JOIN  categories c ON c.id = p.category_id
       WHERE p.name ILIKE ${pattern} AND p.is_active = true
       ORDER BY p.name ASC, p.id ASC
       LIMIT ${limit};
@@ -587,8 +587,8 @@ async function searchIlike(
       p.generic_name AS "genericName",
       0.0::float AS rank, 'ilike' AS source
     FROM products p
-    JOIN vendors v   ON v.id = p.vendor_id
-    JOIN categories c ON c.id = p.category_id
+    LEFT JOIN vendors   v ON v.id = p.vendor_id
+    JOIN  categories c ON c.id = p.category_id
     WHERE p.name ILIKE ${pattern}
       AND p.is_active = true
       AND c.slug = ANY(${slugs}::text[])

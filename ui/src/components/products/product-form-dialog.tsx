@@ -255,7 +255,9 @@ export function ProductFormDialog({
                   <FormLabel>Category</FormLabel>
                   <Select
                     onValueChange={(v) => field.onChange(Number(v))}
-                    value={String(field.value)}
+                    // Only pass a value when there's a real categoryId (>= 1).
+                    // See the vendorId field above for the rationale.
+                    value={field.value && field.value > 0 ? String(field.value) : undefined}
                     disabled={submitting}
                   >
                     <FormControl>
@@ -284,7 +286,14 @@ export function ProductFormDialog({
                   <FormLabel>Vendor</FormLabel>
                   <Select
                     onValueChange={(v) => field.onChange(Number(v))}
-                    value={String(field.value)}
+                    // Only pass a value when there's a real vendorId (>= 1).
+                    // When the value is 0 (the default), don't pass a value
+                    // so the Select shows the placeholder. Without this,
+                    // Radix Select tries to match value="0" against the
+                    // SelectItem list, finds nothing, and silently clears
+                    // the selection — that's the bug where the chosen vendor
+                    // disappears on save.
+                    value={field.value && field.value > 0 ? String(field.value) : undefined}
                     disabled={submitting}
                   >
                     <FormControl>
