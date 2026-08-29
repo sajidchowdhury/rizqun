@@ -13,6 +13,7 @@ import {
   setVendorPriceHandler,
   priceHistory,
 } from './products.controller';
+import { importUpload, importHandler } from './import.controller';
 import { asyncHandler } from '../../utils/asyncHandler';
 import { authenticate } from '../../middlewares/auth.middleware';
 import { requireRole } from '../../middlewares/role.middleware';
@@ -23,13 +24,17 @@ const router = Router();
 // All product routes require authentication
 router.use(authenticate);
 
-// IMPORTANT: static routes (/search, /quick-add, /essentials, /bulk-update-prices)
-// must come BEFORE /:id so Express doesn't treat them as a product id.
+// IMPORTANT: static routes (/search, /quick-add, /essentials,
+// /bulk-update-prices, /import) must come BEFORE /:id so Express
+// doesn't treat them as a product id.
 router.get('/search', categoryScope, asyncHandler(search));
 router.post('/quick-add', asyncHandler(quickAdd));
 router.get('/essentials', asyncHandler(essentials));
 // Morning vendor-call workflow — any authenticated user can bulk-update prices.
 router.post('/bulk-update-prices', asyncHandler(bulkUpdatePricesHandler));
+// Bulk import (Excel/CSV upload) — super_admin only.
+// multer middleware parses the multipart form data before our handler runs.
+router.post('/import', requireRole('super_admin'), importUpload, asyncHandler(importHandler));
 
 // Read access — any authed user
 router.get('/', asyncHandler(list));

@@ -236,5 +236,46 @@ export interface OrderSuggestionsResponse {
   data: SuggestedProduct[];
 }
 
+// ─── Bulk import (POST /products/import) ─────────────────────────
+
+export type ImportFormat = 'grocery' | 'medicine' | 'auto';
+
+export interface ImportPreviewRow {
+  rowNumber: number;
+  name: string;
+  brand: string | null;
+  unit: string;
+  salePrice: number;
+  discountPrice: number | null;
+  imageUrl: string | null;
+  genericName: string | null;
+  categoryName: string;
+  subCategoryName: string | null;
+  vendorName: string | null;
+  isDuplicate: boolean;
+  existingProductId?: number;
+}
+
+export interface ImportPreview {
+  format: 'grocery' | 'medicine';
+  totalRows: number;
+  newProducts: number;
+  duplicates: number;
+  errors: number;
+  rows: ImportPreviewRow[];
+  categories: Array<{ name: string; count: number; duplicates: number }>;
+  vendors: Array<{ name: string; count: number }>;
+}
+
+export interface ImportResult {
+  format: 'grocery' | 'medicine';
+  imported: number;
+  skippedDuplicates: number;
+  errors: number;
+  categoriesCreated: number;
+  subCategoriesCreated: number;
+  vendorsCreated: number;
+}
+
 // Re-export for convenience
 export type { VendorCategory };

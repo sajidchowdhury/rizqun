@@ -9,6 +9,7 @@ import {
   Users,
   PencilLine,
   History,
+  Upload,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -27,6 +28,7 @@ export const NAV_ITEMS: NavItem[] = [
   { label: 'Pending', to: '/orders/pending', icon: ListTodo },
   { label: 'Done', to: '/orders/done', icon: CheckCircle2 },
   { label: 'Products', to: '/products', icon: Package },
+  { label: 'Import', to: '/import', icon: Upload, adminOnly: true },
   { label: 'Update Prices', to: '/prices/update', icon: PencilLine },
   { label: 'Price History', to: '/prices/history', icon: History },
   { label: 'Vendors', to: '/vendors', icon: Store },

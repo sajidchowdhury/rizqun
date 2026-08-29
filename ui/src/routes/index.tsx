@@ -17,6 +17,7 @@ import { OrderDetailPage } from '@/pages/order-detail';
 import { RatingFormPage } from '@/pages/rating-form';
 import { PricesUpdatePage } from '@/pages/prices-update';
 import { PricesHistoryPage } from '@/pages/prices-history';
+import { ImportPage } from '@/pages/import';
 import { NotFoundPage } from '@/pages/not-found';
 
 // ─── Public routes (no shell, no auth) ──────────────────────────────
@@ -72,6 +73,7 @@ const authedRoutes: RouteObject[] = [
           { path: 'orders/done', element: <OrdersDonePage /> },
           { path: 'orders/:id', element: <OrderDetailPage /> },
           { path: 'products', element: <ProductsPage /> },
+          { path: 'import', element: <ImportPage /> },
           { path: 'prices/update', element: <PricesUpdatePage /> },
           { path: 'prices/history', element: <PricesHistoryPage /> },
           { path: 'vendors', element: <VendorsPage /> },
