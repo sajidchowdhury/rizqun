@@ -28,9 +28,13 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { useCategories } from '@/hooks/use-categories';
 import { CategoryAccessPicker } from './category-access-picker';
-import { createUserSchema, type CreateUserForm } from '@/schemas/user';
+import {
+  createUserSchema,
+  editUserSchema,
+  type CreateUserForm,
+  type EditUserForm,
+} from '@/schemas/user';
 import type { User } from '@/types/user-list';
 
 interface UserFormDialogProps {
@@ -49,10 +53,13 @@ export function UserFormDialog({
   submitting = false,
 }: UserFormDialogProps) {
   const isEdit = !!user;
-  const { data: categories } = useCategories();
 
+  // Use a separate schema per mode — create requires password,
+  // edit allows it to be blank (keep current). This fixes the
+  // "broken dialog" bug where zod rejected the empty password in
+  // edit mode with "Password must be at least 8 characters".
   const form = useForm<CreateUserForm>({
-    resolver: zodResolver(createUserSchema),
+    resolver: zodResolver(isEdit ? editUserSchema : createUserSchema) as never,
     defaultValues: {
       name: '',
       email: '',
@@ -78,12 +85,15 @@ export function UserFormDialog({
   }, [open, user, form]);
 
   function handleSubmit(values: CreateUserForm) {
-    // For edit mode: don't send password if empty
-    const cleaned: CreateUserForm = {
-      ...values,
-      password: isEdit && values.password.trim() === '' ? undefined! : values.password,
-    };
-    onSubmit(cleaned);
+    // For edit mode: don't send password if empty (backend keeps the
+    // existing one). For create mode: password is required by the schema.
+    if (isEdit && values.password.trim() === '') {
+      const { password: _password, ...rest } = values;
+      void _password;
+      onSubmit(rest as CreateUserForm);
+      return;
+    }
+    onSubmit(values);
   }
 
   return (
@@ -205,7 +215,6 @@ export function UserFormDialog({
                     <CategoryAccessPicker
                       value={field.value}
                       onChange={field.onChange}
-                      categories={categories}
                       disabled={submitting}
                     />
                   </FormControl>
@@ -253,3 +262,8 @@ export function UserFormDialog({
     </Dialog>
   );
 }
+
+// EditUserForm is exported here for reference but the dialog reuses
+// the CreateUserForm type for both modes (the form values shape is
+// identical — only the schema differs).
+export type { EditUserForm };

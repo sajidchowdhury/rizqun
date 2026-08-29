@@ -33,10 +33,20 @@ function toPublicUser(user: {
   };
 }
 
-// Validate categoryAccess against known slugs + 'all'
+// Validate categoryAccess against known slugs + 'all' + fixed sections.
+//
+// The frontend picker now offers 4 fixed options: All, Grocery, Medicine,
+// Services. The first three are dynamically created as Sections during
+// import (so they exist in the `categories` table), but "services" is a
+// fixed section that may or may not exist yet. We allow all 4 fixed
+// options regardless of what's in the DB so admin can grant "services"
+// access even before any products are imported into that section.
+const FIXED_SECTION_SLUGS = new Set(['all', 'grocery', 'medicine', 'services']);
+
 async function validateCategoryAccess(access: string[]): Promise<void> {
-  const validSlugs = await prisma.category.findMany({ select: { slug: true } });
-  const validSet = new Set<string>([...validSlugs.map((c) => c.slug), 'all']);
+  // Load existing category slugs from the DB (dynamic categories from imports)
+  const dbSlugs = await prisma.category.findMany({ select: { slug: true } });
+  const validSet = new Set<string>([...dbSlugs.map((c) => c.slug), ...FIXED_SECTION_SLUGS]);
   const invalid = access.filter((s) => !validSet.has(s));
   if (invalid.length) {
     throw new AppError(400, `Invalid category slugs: ${invalid.join(', ')}`);
